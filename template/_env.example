@@ -1,0 +1,9 @@
+# Copy to .env and fill in what you have. Your agent reads these here; they never go to Posthuman.
+
+# fal.ai: images and video (fal.ai/dashboard/keys)
+FAL_KEY=
+
+# ElevenLabs: voiceovers and sound effects (elevenlabs.io → Developers → API keys)
+ELEVENLABS_API_KEY=
+# A voice you like (the tools/voice.mjs --list command shows yours)
+ELEVENLABS_VOICE_ID=

@@ -1,0 +1,34 @@
+{
+  "name": "create-posthuman",
+  "version": "0.1.0",
+  "description": "A starter folder for your own AI agent: your brand's voice, ideas, media and recipes on your computer, posted through Posthuman.",
+  "type": "module",
+  "bin": {
+    "create-posthuman": "bin/create.mjs"
+  },
+  "files": [
+    "bin",
+    "template"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "keywords": [
+    "posthuman",
+    "claude-code",
+    "codex",
+    "agents",
+    "social-media",
+    "mcp"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wilybrave/create-posthuman.git"
+  },
+  "homepage": "https://justposthuman.com/kit",
+  "author": "Wilcodes LLC"
+}

@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<style>
+:root {
+  /* Posthuman's own: violet ground, cream paper, volt = lit */
+  --paper: #f6f1e6; --card: #fcfaf5; --ink: #1a0f3d; --soft: #6b6282; --line: #ddd3bf;
+  --accent: #4a22d4; --accent-ink: #f6f1e6; --ok: #d2ff3a; --ok-ink: #1b2600; --ok-edge: #a8d400; --night: #1a0f3d;
+  --rail: #4a22d4; --rail-ink: #f6f1e6;
+  --warn: #fff1c2; --warn-line: #e8c95a; --bad: #c8321f;
+  --shadow: 0 1px 2px rgba(26,15,61,.05), 0 8px 28px rgba(26,15,61,.07);
+  --display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #120b2b; --card: #1c1342; --ink: #f6f1e6; --soft: #c2bbde; --line: #51449a; --accent: #7a5af5; --accent-ink: #f6f1e6;
+    --rail: #1c1342; --warn: #3a3218; --warn-line: #6d5b1f; --bad: #ff8a75; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.3); color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--display); -webkit-font-smoothing: antialiased; }
+h1, h2.big { font-family: var(--display); font-weight: 800; letter-spacing: -0.045em; font-stretch: 108%; line-height: .95; margin: 0; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; }
+button:hover { border-color: var(--soft); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.ok, button.lit { background: var(--ok); color: var(--ok-ink); border-color: var(--ok-edge); font-weight: 700; }
+button.ghost { border-color: transparent; background: transparent; }
+button:disabled { opacity: .45; cursor: default; }
+textarea, input[type=text] { width: 100%; border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 10px 12px; outline: none; }
+textarea:focus, input[type=text]:focus { border-color: var(--accent); }
+.muted { color: var(--soft); }
+.small { font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* the rail, like the real app */
+.app { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100dvh; }
+.rail { background: var(--rail); color: var(--rail-ink); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100dvh; }
+.wordmark { font-family: var(--display); font-weight: 800; letter-spacing: -0.045em; white-space: nowrap; font-size: 26px; padding: 0 8px; }
+.wordmark .hollow { -webkit-text-fill-color: transparent; -webkit-text-stroke: 0.04em currentColor; paint-order: stroke fill; }
+.studio-chip { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 800; letter-spacing: .02em; background: var(--ok); color: var(--ok-ink); border-radius: 999px; padding: 1px 8px; vertical-align: 5px; }
+.rail .who { padding: 2px 8px 14px; font-size: 13px; color: color-mix(in srgb, var(--rail-ink) 70%, transparent); }
+.rail .go { margin: 0 0 12px; width: 100%; padding: 10px 14px; }
+.rail .place { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 999px; font-weight: 600; color: color-mix(in srgb, var(--rail-ink) 76%, transparent); text-decoration: none; }
+.rail .place:hover { color: var(--rail-ink); background: color-mix(in srgb, var(--rail-ink) 10%, transparent); }
+.rail .place[aria-current="page"] { background: var(--rail-ink); color: var(--night); }
+.rail .place .n { margin-left: auto; background: var(--ok); color: var(--ok-ink); border-radius: 999px; font-size: 11px; font-weight: 800; padding: 0 7px; }
+.rail .foot { margin-top: auto; font-size: 12px; color: color-mix(in srgb, var(--rail-ink) 62%, transparent); padding: 0 10px; display: grid; gap: 3px; }
+.rail .foot b { color: var(--rail-ink); font-weight: 600; }
+.view-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.view-head h1 { font-size: clamp(30px, 4vw, 46px); }
+.view-head .sub { color: var(--soft); max-width: 60ch; }
+.view-head .grow { flex: 1; }
+.week { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+.counts { display: flex; gap: 6px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+.cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 18px; align-items: start; }
+.angles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+.angle h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; font-size: 20px; line-height: 1.1; margin: 6px 0; }
+.angle .first { white-space: pre-wrap; margin: 6px 0; }
+.angle .needs { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 10px; padding: 6px 9px; font-size: 13px; margin-top: 6px; }
+.angle.kept { opacity: .55; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.chip-file { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 2px; background: var(--paper); font-size: 12px; }
+.chip-file img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.list-edit { display: grid; gap: 8px; }
+.list-edit .row { flex-wrap: nowrap; }
+.recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.recipe h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; font-size: 22px; margin: 0 0 4px; }
+.recipe .cost { font-size: 13px; color: var(--soft); margin-bottom: 10px; }
+.recipe label { display: block; font-size: 12px; color: var(--soft); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .05em; }
+.recipe select { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; background: var(--card); }
+.steps { display: grid; gap: 14px; }
+.step h2 { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; font-size: 24px; margin: 0 0 4px; }
+.step .n1 { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 800; margin-right: 8px; vertical-align: 3px; }
+.step.done .n1 { background: var(--ok); color: var(--ok-ink); }
+.step label { display: block; font-size: 12px; color: var(--soft); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .05em; }
+.past-card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 10px; }
+.past-card .words { white-space: pre-wrap; font-size: 16px; margin: 6px 0 10px; }
+.aims button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.stuff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+.stuff { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); display: flex; flex-direction: column; }
+.stuff.picked { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stuff .pic { position: relative; aspect-ratio: 1; background: var(--paper); cursor: pointer; }
+.stuff .pic img, .stuff .pic video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stuff .pic input { position: absolute; top: 6px; left: 6px; width: 18px; height: 18px; }
+.stuff .cap { padding: 6px 8px; font-size: 12px; display: grid; gap: 2px; }
+.stuff .cap .angle { color: var(--accent); font-weight: 600; }
+.stuff .acts { display: flex; gap: 4px; flex-wrap: wrap; padding: 0 6px 6px; }
+.stuff .acts button { font-size: 12px; padding: 3px 9px; }
+.where { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .where { grid-template-columns: 1fr; } }
+.where li { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
+.project li { font-size: 13px; list-style: none; }
+.project ul { padding: 0; margin: 6px 0; }
+.acct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.acct-card h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; font-size: 20px; line-height: 1.1; margin: 0; }
+.acct-card dl { margin: 8px 0 0; font-size: 13px; padding: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; }
+.acct-card dt { color: var(--soft); }
+.acct-card dd { margin: 0; }
+.acct-card.unset { border-style: dashed; }
+.example { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-top: 8px; white-space: pre-wrap; font-size: 14px; }
+.needkey { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .rail { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; flex-direction: row; padding: 6px; z-index: 9; justify-content: space-around; }
+  .rail .wordmark, .rail .who, .rail .foot, .rail .go { display: none; }
+  .rail .place { padding: 8px 10px; font-size: 13px; }
+  .cols { grid-template-columns: 1fr; }
+  main { padding-bottom: 90px !important; }
+}
+main { padding: 26px 28px 80px; min-width: 0; }
+.view[hidden] { display: none; }
+.board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+.day h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
+.day.today h2 { color: var(--accent); }
+.day .empty { border: 1px dashed var(--line); border-radius: 14px; padding: 14px; color: var(--soft); font-size: 13px; text-align: center; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; box-shadow: var(--shadow); cursor: pointer;
+  transition: transform .12s ease, border-color .12s; }
+.card:hover { transform: translateY(-1px); border-color: var(--soft); }
+.card.dropped { opacity: .5; }
+.card .top { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--soft); margin-bottom: 4px; }
+.card .txt { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.card .foot { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.card .flag { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 999px; font-size: 11px; padding: 1px 7px; }
+.thumbs { display: flex; gap: 4px; margin-top: 6px; }
+.thumbs img, .thumbs video { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.undated { margin-top: 28px; }
+.undated h2 { font-size: 13px; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
+.undated .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+@media (max-width: 1180px) {
+  .board { grid-template-columns: 1fr; }
+  .day .empty { display: none; }
+  .day:has(.empty) { display: none; }
+}
+
+/* the sheet */
+.scrim { position: fixed; inset: 0; background: rgba(20,15,5,.28); z-index: 10; display: none; }
+.scrim.open { display: block; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(980px, 100%); background: var(--paper); z-index: 11; transform: translateX(100%);
+  transition: transform .2s ease; display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+.sheet.open { transform: none; }
+.sheet .bar { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.sheet .bar .title { font-weight: 600; flex: 1; min-width: 180px; }
+.sheet .body { overflow: auto; padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 800px) { .sheet .body { grid-template-columns: 1fr; } }
+.sheet h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); margin: 18px 0 8px; }
+.sheet h3:first-child { margin-top: 0; }
+.notes { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 12px; padding: 10px 12px; font-size: 13px; white-space: pre-line; margin-bottom: 14px; }
+.counts-line { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.count { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+.count.over { background: var(--bad); color: #fff; border-color: var(--bad); }
+.status-row button.on { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.tabs button { padding: 4px 11px; font-size: 13px; }
+.tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.preview { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
+.preview + .preview { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; }
+.preview .who { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; flex: none; }
+.preview .name { font-weight: 700; }
+.preview .handle { color: var(--soft); font-size: 13px; }
+.preview .text { white-space: pre-wrap; word-wrap: break-word; font-size: 15px; }
+.preview .media { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; margin-top: 10px; border-radius: 14px; overflow: hidden; }
+.preview .media img, .preview .media video { width: 100%; max-height: 360px; object-fit: cover; display: block; }
+.preview .meta { margin-top: 8px; font-size: 12px; color: var(--soft); }
+.joined { border-left: 2px solid var(--line); margin-left: 18px; height: 10px; }
+
+.media-edit { display: grid; gap: 10px; }
+.media-item { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center; }
+.media-item img, .media-item video { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.drop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center; color: var(--soft); font-size: 13px; }
+.drop.over { border-color: var(--accent); color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.grid .tile { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); cursor: pointer; }
+.grid .tile img, .grid .tile video { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.grid .tile .cap { font-size: 11px; padding: 4px 6px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid .tile.audio { display: grid; place-items: center; aspect-ratio: 1; font-size: 26px; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.compare > div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; white-space: pre-wrap; font-size: 14px; }
+.compare > div.new { border-color: var(--accent); }
+h3.label { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); }
+.pill.gives { background: transparent; border-style: dashed; }
+.pill.tells { background: var(--warn); border-color: var(--warn-line); }
+.tell-list { margin: 0; padding-left: 18px; font-size: 13px; }
+.tell-list li { margin-bottom: 4px; }
+.tell-list mark { background: var(--warn); color: inherit; border-radius: 4px; padding: 0 3px; }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; }
+@keyframes s { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } .sheet { transition: none; } }
+
+/* side drawers + job */
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--paper); z-index: 11; transform: translateX(100%); transition: transform .2s; border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+.drawer.open { transform: none; }
+.drawer .body { overflow: auto; padding: 18px; display: block; }
+.ideas li { margin: 0 0 8px; }
+.job { position: fixed; right: 16px; bottom: 16px; width: min(460px, calc(100% - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); z-index: 20; padding: 12px 14px; display: none; }
+.job.open { display: block; }
+.job pre { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 12px; margin: 8px 0 0; }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 999px; font-size: 14px; z-index: 30; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+<nav class="rail" aria-label="Studio">
+  <div class="wordmark" aria-label="Posthuman Studio"><span aria-hidden="true">Post</span><span class="hollow" aria-hidden="true">human</span><span class="studio-chip">Studio</span></div>
+  <div class="who" id="brand">your folder</div>
+  <button class="lit go" id="scheduleBtn" disabled>Schedule approved</button>
+  <a class="place" href="#week" data-view="week">Week <span class="n" id="nWeek" hidden></span></a>
+  <a class="place" href="#know" data-view="know">Get to know you <span class="n" id="nKnow" hidden></span></a>
+  <a class="place" href="#stuff" data-view="stuff">Your stuff</a>
+  <a class="place" href="#brainstorm" data-view="brainstorm">Brainstorm</a>
+  <a class="place" href="#raw" data-view="raw">This week's raw <span class="n" id="nRaw" hidden></span></a>
+  <a class="place" href="#accounts" data-view="accounts">Accounts</a>
+  <a class="place" href="#make" data-view="make">Make</a>
+  <a class="place" href="#library" data-view="library">Library</a>
+  <div class="foot" id="foot"></div>
+</nav>
+<main>
+  <section class="view" id="v-week">
+    <div class="view-head">
+      <h1 id="weeklabel">This week</h1>
+      <div class="week"><button class="ghost" id="prev" aria-label="Previous week">‹</button><button class="ghost" id="next" aria-label="Next week">›</button></div>
+      <div class="counts" id="counts"></div>
+    </div>
+    <div class="counts" id="mix" style="margin:-8px 0 14px;flex-wrap:wrap"></div>
+    <div class="board" id="board"></div>
+    <div class="undated" id="undated"></div>
+  </section>
+  <section class="view" id="v-know" hidden></section>
+  <section class="view" id="v-stuff" hidden></section>
+  <section class="view" id="v-brainstorm" hidden></section>
+  <section class="view" id="v-raw" hidden></section>
+  <section class="view" id="v-accounts" hidden></section>
+  <section class="view" id="v-make" hidden></section>
+  <section class="view" id="v-library" hidden></section>
+</main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" aria-label="Post"></section>
+<div class="job" id="job"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const api = async (method, url, body, raw) => {
+  const r = await fetch(url, { method, headers: { "X-Studio-Token": TOKEN, ...(raw ? {} : { "Content-Type": "application/json" }) }, body: raw ? body : body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status });
+  return j;
+};
+const media = (f) => `/library/${f.split("/").map(encodeURIComponent).join("/")}?t=${TOKEN}`;
+const toast = (msg) => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200); };
+
+// platforms: limits and how the card looks
+const PLATFORMS = [
+  { re: /\bx\b|twitter/i, name: "X", limit: 280 },
+  { re: /bluesky|bsky/i, name: "Bluesky", limit: 300 },
+  { re: /mastodon/i, name: "Mastodon", limit: 500 },
+  { re: /threads/i, name: "Threads", limit: 500 },
+  { re: /instagram/i, name: "Instagram", limit: 2200 },
+  { re: /tiktok/i, name: "TikTok", limit: 2200 },
+  { re: /linkedin/i, name: "LinkedIn", limit: 3000 },
+  { re: /pinterest/i, name: "Pinterest", limit: 500 },
+  { re: /telegram/i, name: "Telegram", limit: 4096 },
+  { re: /discord/i, name: "Discord", limit: 2000 },
+  { re: /nostr/i, name: "Nostr", limit: 0 },
+  { re: /facebook/i, name: "Facebook", limit: 63206 },
+  { re: /youtube/i, name: "YouTube", limit: 5000 },
+];
+const platformOf = (acct) => PLATFORMS.find((p) => p.re.test(acct)) || { name: acct, limit: 0 };
+const handleOf = (acct) => (acct.match(/@[\w.@-]+/) || [""])[0];
+const parts = (t) => t.split(/\n---\n/);
+const glyphs = (s) => [...s].length;
+
+let S = { posts: [], library: [], ideas: [], agent: null, brand: "" };
+let humanCheck = null; // the same check as tools/humanize.mjs, loaded from the server
+let substanceCheck = null, GIVES_LIST = { story: "", tip: "", number: "", show: "", opinion: "" };
+import(`/substance-rules.mjs?t=${TOKEN}`).then((m) => { substanceCheck = m.substance; GIVES_LIST = m.GIVES; if (open) drawSheet(); }).catch(() => {});
+import(`/humanize-rules.mjs?t=${TOKEN}`).then((m) => { humanCheck = m.check; if (open) drawTells(); }).catch(() => {});
+let fitCheck = null, setupFor = null;
+import(`/account-rules.mjs?t=${TOKEN}`).then((m) => { fitCheck = m.fitCheck; setupFor = m.setupFor; if (open) drawTells(); }).catch(() => {});
+let weekStart = startOfWeek(new Date());
+let open = null; // the post being edited: { slug, draft fields, dirty }
+
+function startOfWeek(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - x.getDay()); return x; }
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+async function load(redraw = true) {
+  S = await api("GET", "/api/state");
+  document.title = `${S.brand} · Studio`;
+  drawRail();
+  if (redraw !== false && view === "week") render();
+}
+
+function render() {
+  const days = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
+  $("#weeklabel").textContent = ymd(days[0]) === ymd(startOfWeek(new Date())) ? "This week" : `Week of ${fmtDay(days[0])}`;
+  const inWeek = S.posts.filter((p) => p.date && p.date >= ymd(days[0]) && p.date <= ymd(days[6]));
+  const count = (st) => inWeek.filter((p) => p.status === st).length;
+  $("#counts").innerHTML = ["draft", "approved", "scheduled", "posted"].map((st) => count(st) ? `<span class="pill ${st}">${count(st)} ${st}</span>` : "").join("");
+  // the week's mix, against the topics in brand/about.md ("Building 3/7")
+  const T = S.topics || [];
+  const live = inWeek.filter((p) => p.status !== "dropped");
+  const tOf = (p) => { const v = (p.topic || "").toLowerCase(); return v && (T.find((t) => t.name.toLowerCase() === v) || T.find((t) => t.name.toLowerCase().startsWith(v) || v.startsWith(t.name.toLowerCase()))); };
+  $("#mix").innerHTML = T.length && live.length ? T.map((t) => { const n = live.filter((p) => tOf(p) === t).length; return `<span class="pill ${t.per_week && n < t.per_week ? "" : "approved"}" title="${esc(t.name)}${t.per_week ? `: you want about ${t.per_week} a week` : ""}">${esc(t.name.split(" ").slice(0, 3).join(" "))} ${n}${t.per_week ? `/${t.per_week}` : ""}</span>`; }).join("") + (live.some((p) => !tOf(p)) ? `<span class="pill" title="Posts with no topic">no topic ${live.filter((p) => !tOf(p)).length}</span>` : "") : "";
+  const approved = S.posts.filter((p) => p.status === "approved").length;
+  const sb = $("#scheduleBtn");
+  sb.textContent = approved ? `Schedule approved (${approved})` : "Schedule approved";
+  sb.disabled = !approved;
+  sb.title = S.agent ? "Your agent schedules them through Posthuman" : "Needs Claude Code installed (or ask your agent: schedule the approved posts)";
+  const today = ymd(new Date());
+  $("#board").innerHTML = days.map((d) => {
+    const ps = inWeek.filter((p) => p.date === ymd(d)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+    return `<div class="day${ymd(d) === today ? " today" : ""}"><h2>${esc(fmtDay(d))}</h2>${ps.map(card).join("") || `<div class="empty">Nothing yet</div>`}</div>`;
+  }).join("");
+  const undated = S.posts.filter((p) => !p.date);
+  $("#undated").innerHTML = undated.length ? `<h2>No date</h2><div class="list">${undated.map(card).join("")}</div>` : "";
+  document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openPost(c.dataset.slug)));
+}
+
+function card(p) {
+  const first = parts(p.everywhere)[0];
+  const n = parts(p.everywhere).length;
+  const thumbs = p.media.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" muted preload="metadata"></video>` : /\.(mp3|wav|m4a)$/i.test(f) ? "" : `<img src="${media(f)}" alt="">`).join("");
+  return `<div class="card ${esc(p.status)}" data-slug="${esc(p.slug)}" tabindex="0">
+    <div class="top"><span>${esc(p.time || "")}${p.time && p.kind ? " · " : ""}${esc(p.kind)}</span></div>
+    <div class="txt">${esc(first)}</div>
+    ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}
+    <div class="foot"><span class="pill ${esc(p.status)}">${esc(p.status)}</span>${n > 1 ? `<span class="pill">${n} parts</span>` : ""}${p.flagged ? `<span class="flag">needs you</span>` : ""}${p.topic ? `<span class="pill">${esc(p.topic)}</span>` : ""}${p.gives ? `<span class="pill gives" title="${esc(p.payload)}">gives: ${esc(p.gives)}</span>` : ""}${p.substance?.length ? `<span class="flag" title="${esc(p.substance.map((x) => x.issue).join(", "))}">${p.gives ? "thin" : "gives nothing"}</span>` : ""}${p.tells?.length ? `<span class="pill tells" title="${esc(p.tells.map((t) => t.tell).join(", "))}">${p.tells.length} AI tell${p.tells.length === 1 ? "" : "s"}</span>` : ""}${p.fits?.length ? `<span class="flag" title="${esc(p.fits.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">breaks a no</span>` : ""}${p.first_draft ? `<span class="pill" title="You edited it; your agent learns from the change">edited</span>` : ""}</div>
+  </div>`;
+}
+
+// ---------- the post sheet ----------
+
+function openPost(slug) {
+  const p = S.posts.find((x) => x.slug === slug);
+  if (!p) return;
+  open = { slug, base: p, topic: p.topic || "", gives: p.gives || "", payload: p.payload || "", everywhere: p.everywhere, per: p.per.map((x) => ({ ...x })), media: [...p.media], made_with_ai: p.made_with_ai, status: p.status, tab: p.accounts[0] || "", rewrite: null, dirty: false };
+  $("#scrim").classList.add("open");
+  $("#sheet").classList.add("open");
+  drawSheet();
+  setTimeout(() => $("#words")?.focus(), 50);
+}
+function closeSheet(force) {
+  if (open?.dirty && !force && !confirm("You have changes that aren't saved. Close anyway?")) return;
+  open = null;
+  $("#sheet").classList.remove("open");
+  $("#scrim").classList.remove("open");
+  closeDrawers();
+}
+const resolved = (acct) => {
+  const own = open.per.find((x) => x.account === acct)?.words;
+  if (!own) return open.everywhere;
+  // "…same words… + #tag": the main words, then the rest on its own line at the end
+  return own.replace(/…\s*same (words|thread)\s*…\s*\+?\s*/i, `${open.everywhere}\n\n`).trim();
+};
+
+function drawSheet() {
+  const p = open.base;
+  const d = p.date ? new Date(`${p.date}T12:00:00`) : null;
+  const accts = p.accounts.length ? p.accounts : ["Everywhere"];
+  $("#sheet").innerHTML = `
+    <div class="bar">
+      <div class="title">${d ? esc(fmtDay(d)) : "No date"}${p.time ? ` · ${esc(p.time)}` : ""}${p.kind ? ` <span class="muted">· ${esc(p.kind)}</span>` : ""}</div>
+      <div class="row status-row">
+        <button class="ok ${open.status === "approved" ? "on" : ""}" data-st="approved">Approve</button>
+        <button class="${open.status === "draft" ? "on" : ""}" data-st="draft">Draft</button>
+        <button class="${open.status === "dropped" ? "on" : ""}" data-st="dropped">Drop</button>
+      </div>
+      <button class="primary" id="save" ${open.dirty ? "" : "disabled"}>Save</button>
+      <button class="ghost" id="close" aria-label="Close">✕</button>
+    </div>
+    <div class="body">
+      <div>
+        ${p.notes ? `<div class="notes">${esc(p.notes)}</div>` : ""}
+        ${p.status === "scheduled" || p.status === "posted" ? `<div class="notes">This one is ${esc(p.status)} in Posthuman${p.post_id ? ` (post ${esc(p.post_id)})` : ""}. Changes here don't reach it: ask your agent to update_post, or edit it in Posthuman.</div>` : ""}
+        ${(S.topics || []).length ? `<h3>What it's about</h3><div class="tabs" id="topics">${S.topics.map((t) => `<button class="${open.topic.toLowerCase() === t.name.toLowerCase() ? "on" : ""}" data-t="${esc(t.name)}">${esc(t.name)}</button>`).join("")}</div>` : ""}
+        <h3>What it gives the reader</h3>
+        <div class="tabs" id="gives">${Object.keys(GIVES_LIST).map((g) => `<button class="${open.gives === g ? "on" : ""}" data-g="${g}" title="${esc(GIVES_LIST[g])}">${g}</button>`).join("")}</div>
+        <input type="text" id="payload" value="${esc(open.payload)}" placeholder="The one real thing, in a line: the true detail, the tip, the number, the reason">
+        <div id="substance" style="margin-top:6px"></div>
+
+        <h3>Words, everywhere</h3>
+        <textarea id="words" rows="${Math.min(18, Math.max(6, open.everywhere.split("\n").length + 2))}" spellcheck="true">${esc(open.everywhere)}</textarea>
+        <div class="small muted" style="margin-top:4px">A line with only --- splits it into a thread.</div>
+        <div class="counts-line" id="counts-line"></div>
+
+        <h3>Own words for one account</h3>
+        <div id="per"></div>
+        <div class="row" style="margin-top:6px">
+          <select id="perAdd"><option value="">+ add for…</option>${accts.filter((a) => !open.per.some((x) => x.account === a)).map((a) => `<option>${esc(a)}</option>`).join("")}</select>
+          <span class="small muted">"…same words… + #tag" adds to the main words.</span>
+        </div>
+
+        <h3>Reads human?</h3>
+        <div id="tells"></div>
+
+        <h3>Fits each account?</h3>
+        <div id="fits"></div>
+
+        <h3>Rewrite</h3>
+        <div class="row" style="flex-wrap:nowrap">
+          <input type="text" id="note" placeholder="${S.agent ? "punchier · less salesy · end on a question" : "a note for your agent (it picks it up next time)"}">
+          <button id="rewrite">${S.agent ? "Rewrite" : "Save note"}</button>
+          <button class="primary" id="humanize" title="The last pass: plain words, shorter, no AI giveaways. Same facts, same joke.">Humanize</button>
+        </div>
+        <div id="rewriteOut">${p.rewrite_asked ? `<div class="small muted" style="margin-top:6px">Waiting for your agent: ${esc(p.rewrite_asked)}</div>` : ""}</div>
+        ${p.first_draft ? `<h3>Your agent's first draft</h3><div class="small muted" style="white-space:pre-wrap">${esc(p.first_draft.replace(/<!--[\s\S]*?-->\n?/, ""))}</div>` : ""}
+      </div>
+      <div>
+        <h3>How it looks</h3>
+        <div class="tabs" id="tabs">${accts.map((a) => `<button class="${a === open.tab ? "on" : ""}" data-tab="${esc(a)}">${esc(platformOf(a).name)}</button>`).join("")}</div>
+        <div id="preview"></div>
+
+        <h3>Pictures and video</h3>
+        <div class="media-edit" id="mediaEdit"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="pick">Add from library</button>
+          <label class="row small"><input type="checkbox" id="ai" ${open.made_with_ai ? "checked" : ""}> Made with AI (labels it on the platforms)</label>
+        </div>
+        <div class="drop" id="drop" style="margin-top:8px">Drop a picture or clip here</div>
+        <div id="picker"></div>
+      </div>
+    </div>`;
+  $("#close").onclick = () => closeSheet();
+  $("#save").onclick = save;
+  $("#sheet").querySelectorAll("[data-st]").forEach((b) => (b.onclick = async () => { open.status = b.dataset.st; open.dirty = true; await save(); }));
+  $("#words").oninput = (e) => { open.everywhere = e.target.value; dirty(); drawCounts(); drawPreview(); drawTells(); drawSubstance(); };
+  $("#topics")?.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => { open.topic = open.topic === b.dataset.t ? "" : b.dataset.t; dirty(); drawSheet(); }));
+  $("#gives").querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => { open.gives = open.gives === b.dataset.g ? "" : b.dataset.g; dirty(); drawSheet(); }));
+  $("#payload").oninput = (e) => { open.payload = e.target.value; dirty(); drawSubstance(); };
+  $("#perAdd").onchange = (e) => { if (!e.target.value) return; open.per.push({ account: e.target.value, words: "…same words…" }); dirty(); drawSheet(); };
+  $("#tabs").querySelectorAll("button").forEach((b) => (b.onclick = () => { open.tab = b.dataset.tab; drawSheet(); }));
+  $("#ai").onchange = (e) => { open.made_with_ai = e.target.checked; dirty(); };
+  $("#rewrite").onclick = () => rewrite();
+  $("#humanize").onclick = () => rewrite(true);
+  $("#note").onkeydown = (e) => { if (e.key === "Enter") rewrite(); };
+  $("#pick").onclick = () => drawPicker();
+  dropZone($("#drop"), async (file) => { open.media.push(file); dirty(); drawSheet(); });
+  drawPer(); drawCounts(); drawPreview(); drawMedia(); drawTells(); drawSubstance();
+}
+function drawSubstance() {
+  const el = $("#substance");
+  if (!el) return;
+  const t = substanceCheck ? substanceCheck({ gives: open.gives, payload: open.payload, words: open.everywhere, media: open.media }) : open.base.substance || [];
+  el.innerHTML = t.length
+    ? `<ul class="tell-list">${t.map((x) => `<li><b>${esc(x.issue)}</b>. <span class="muted">${esc(x.fix)}</span></li>`).join("")}</ul>`
+    : `<div class="small muted">It gives the reader something real.</div>`;
+}
+function drawTells() {
+  const el = $("#tells");
+  if (!el) return;
+  const t = humanCheck ? humanCheck(open.everywhere) : open.base.tells || [];
+  el.innerHTML = t.length
+    ? `<ul class="tell-list">${t.map((x) => `<li><b>${esc(x.tell)}</b>: ${x.found.map((f) => `<mark>${esc(f)}</mark>`).join(" ")} <span class="muted">${esc(x.fix)}</span></li>`).join("")}</ul>`
+    : `<div class="small muted">Nothing that sounds like AI. Still read it out loud once.</div>`;
+  drawFits();
+}
+// Does it fit each account's setup (brand/accounts.md)?
+function drawFits() {
+  const el = $("#fits");
+  if (!el) return;
+  const accts = S.accounts?.accounts || [];
+  const fits = fitCheck && setupFor ? open.base.accounts.map((a) => ({ account: a, issues: fitCheck(setupFor(a, accts)?.setup, resolved(a)) })).filter((f) => f.issues.length) : open.base.fits || [];
+  const known = open.base.accounts.filter((a) => setupFor?.(a, accts)?.setup).length;
+  const items = [
+    ...fits.flatMap((f) => f.issues.map((x) => `<li><b>${esc(platformOf(f.account).name)}</b>: ${esc(x.issue)}. <span class="muted">${esc(x.fix)}</span></li>`)),
+  ];
+  el.innerHTML = items.length
+    ? `<ul class="tell-list">${items.join("")}</ul>`
+    : `<div class="small muted">${known ? "Fits how each account works." : `No account setups here yet: <a href="#accounts">Accounts</a>.`}</div>`;
+}
+function dirty() { open.dirty = true; const s = $("#save"); if (s) s.disabled = false; }
+
+function drawPer() {
+  $("#per").innerHTML = open.per.length ? open.per.map((x, i) => `
+    <div style="margin-bottom:8px"><div class="row small" style="justify-content:space-between"><b>${esc(x.account)}</b><button class="ghost small" data-rm="${i}">Remove</button></div>
+    <textarea rows="2" data-per="${i}">${esc(x.words)}</textarea></div>`).join("") : `<div class="small muted">None: every account gets the main words.</div>`;
+  $("#per").querySelectorAll("[data-per]").forEach((t) => (t.oninput = () => { open.per[t.dataset.per].words = t.value; dirty(); drawCounts(); drawPreview(); drawFits(); }));
+  $("#per").querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { open.per.splice(Number(b.dataset.rm), 1); dirty(); drawSheet(); }));
+}
+function drawCounts() {
+  const accts = open.base.accounts;
+  $("#counts-line").innerHTML = accts.map((a) => {
+    const pf = platformOf(a);
+    if (!pf.limit) return `<span class="count">${esc(pf.name)}</span>`;
+    const longest = Math.max(...parts(resolved(a)).map(glyphs));
+    return `<span class="count ${longest > pf.limit ? "over" : ""}" title="${esc(a)}">${esc(pf.name)} ${longest}/${pf.limit}</span>`;
+  }).join("");
+}
+function drawPreview() {
+  const a = open.tab || "Everywhere";
+  const pf = platformOf(a);
+  const name = S.brand;
+  const ps = parts(resolved(a));
+  const m = open.media.filter((f) => !/\.(mp3|wav|m4a)$/i.test(f));
+  $("#preview").innerHTML = ps.map((t, i) => `
+    ${i ? `<div class="joined"></div>` : ""}
+    <div class="preview">
+      <div class="who"><div class="avatar">${esc(name[0]?.toUpperCase() || "?")}</div><div><div class="name">${esc(name)}</div><div class="handle">${esc(handleOf(a) || pf.name)}</div></div></div>
+      <div class="text">${esc(t)}</div>
+      ${i === 0 && m.length ? `<div class="media">${m.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" controls preload="metadata"></video>` : `<img src="${media(f)}" alt="${esc(altOf(f))}">`).join("")}</div>` : ""}
+      <div class="meta">${esc(pf.name)}${pf.limit ? ` · ${glyphs(t)}/${pf.limit}` : ""}${ps.length > 1 ? ` · part ${i + 1} of ${ps.length}` : ""}${open.made_with_ai && i === 0 ? " · AI label" : ""}</div>
+    </div>`).join("");
+}
+const altOf = (f) => S.library.find((x) => x.file === f)?.alt || "";
+function drawMedia() {
+  $("#mediaEdit").innerHTML = open.media.map((f, i) => {
+    const isAudio = /\.(mp3|wav|m4a)$/i.test(f);
+    const thumb = /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" muted preload="metadata"></video>` : isAudio ? `<div class="tile audio" style="width:72px;height:72px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px">♪</div>` : `<img src="${media(f)}" alt="">`;
+    return `<div class="media-item">${thumb}<div><div class="small muted">${esc(f)}</div><input type="text" data-alt="${esc(f)}" value="${esc(altOf(f))}" placeholder="One sentence describing it (alt text)"></div><button class="ghost" data-rmm="${i}">Remove</button></div>`;
+  }).join("") || `<div class="small muted">No pictures: a text post.</div>`;
+  $("#mediaEdit").querySelectorAll("[data-alt]").forEach((inp) => (inp.onchange = async () => {
+    await api("PUT", "/api/alt", { file: inp.dataset.alt, alt: inp.value });
+    const x = S.library.find((y) => y.file === inp.dataset.alt); if (x) x.alt = inp.value;
+    drawPreview(); toast("Description saved");
+  }));
+  $("#mediaEdit").querySelectorAll("[data-rmm]").forEach((b) => (b.onclick = () => { open.media.splice(Number(b.dataset.rmm), 1); dirty(); drawSheet(); }));
+}
+function drawPicker() {
+  const el = $("#picker");
+  if (el.innerHTML) { el.innerHTML = ""; return; }
+  el.innerHTML = S.library.length ? `<h3>Library</h3><div class="grid">${S.library.map((x) => tile(x)).join("")}</div>` : `<div class="small muted" style="margin-top:8px">The library is empty. Drop a file above, or ask your agent to make one (recipes/).</div>`;
+  el.querySelectorAll(".tile").forEach((t) => (t.onclick = () => { if (!open.media.includes(t.dataset.file)) open.media.push(t.dataset.file); dirty(); drawSheet(); }));
+}
+const tile = (x) => `<div class="tile ${x.type === "audio" ? "audio" : ""}" data-file="${esc(x.file)}" title="${esc(x.alt || x.file)}">${x.type === "video" ? `<video src="${media(x.file)}" muted preload="metadata"></video>` : x.type === "audio" ? "♪" : `<img src="${media(x.file)}" alt="${esc(x.alt)}" loading="lazy">`}${x.type === "audio" ? "" : `<div class="cap">${esc(x.alt || x.file)}</div>`}</div>`;
+
+async function save() {
+  if (!open) return;
+  try {
+    const r = await api("PUT", `/api/post/${encodeURIComponent(open.slug)}`, { everywhere: open.everywhere, topic: open.topic, gives: open.gives, payload: open.payload, per: open.per, media: open.media, made_with_ai: open.made_with_ai, status: open.status, mtime: open.base.mtime });
+    const i = S.posts.findIndex((x) => x.slug === open.slug);
+    S.posts[i] = r.post;
+    open.base = r.post; open.dirty = false;
+    render(); drawSheet(); toast(open.status === "approved" ? "Approved" : "Saved");
+  } catch (e) {
+    alert(e.message);
+    if (e.status === 409) { await load(); openPost(open.slug); }
+  }
+}
+
+async function rewrite(humanize = false) {
+  const note = $("#note").value.trim();
+  const out = $("#rewriteOut");
+  if (!S.agent) {
+    const r = await api("POST", `/api/rewrite/${encodeURIComponent(open.slug)}`, { note, humanize });
+    out.innerHTML = `<div class="small muted" style="margin-top:6px">${esc(r.message)}</div>`;
+    await load(); return;
+  }
+  if (open.dirty) await save();
+  out.innerHTML = `<div class="small muted" style="margin-top:8px"><span class="spin"></span> ${humanize ? "Making it sound human…" : "Your agent is rewriting it…"}</div>`;
+  const slug = open.slug;
+  const { job } = await api("POST", `/api/rewrite/${encodeURIComponent(slug)}`, { note, humanize }).catch((e) => ({ error: e.message }));
+  if (!job) { out.innerHTML = `<div class="notes" style="margin-top:8px">Couldn't start the rewrite.</div>`; return; }
+  const j = await waitJob(job);
+  if (!open || open.slug !== slug) return;
+  if (j.state !== "done") { out.innerHTML = `<div class="notes" style="margin-top:8px">The rewrite didn't work:\n${esc((j.err || j.out).slice(-600))}</div>`; return; }
+  const fresh = j.out.trim();
+  if (!fresh) { out.innerHTML = `<div class="notes" style="margin-top:8px">Your agent came back with nothing. Try again, or a different note.</div>`; return; }
+  out.innerHTML = `<div class="compare"><div><div class="small muted">Now</div>${esc(open.everywhere)}</div><div class="new"><div class="small muted">${humanize ? "Humanized" : "Rewrite"}${humanCheck ? ` · ${humanCheck(fresh).length ? `${humanCheck(fresh).length} still flagged` : "reads human"}` : ""}</div>${esc(fresh)}</div></div>
+    <div class="row" style="margin-top:8px"><button class="primary" id="useIt">Use the rewrite</button><button id="keep">Keep mine</button><button class="ghost" id="again">Try again</button></div>`;
+  $("#useIt").onclick = () => { open.everywhere = fresh; dirty(); drawSheet(); };
+  $("#keep").onclick = () => (out.innerHTML = "");
+  $("#again").onclick = () => rewrite(humanize);
+}
+
+function waitJob(id, onTick) {
+  return new Promise((ok) => {
+    const tick = async () => {
+      const j = await api("GET", `/api/job/${id}`).catch(() => ({ state: "failed", out: "lost it" }));
+      if (j.state === "running") { onTick?.(j); setTimeout(tick, 1500); } else ok(j);
+    };
+    tick();
+  });
+}
+
+// ---------- schedule ----------
+
+$("#scheduleBtn").onclick = async () => {
+  const n = S.posts.filter((p) => p.status === "approved").length;
+  if (!S.agent) { alert("Claude Code isn't installed on this computer. Open your agent in this folder and say: schedule the approved posts."); return; }
+  if (!confirm(`Hand ${n} approved post${n === 1 ? "" : "s"} to your agent to schedule through Posthuman?`)) return;
+  const { job } = await api("POST", "/api/schedule");
+  const box = $("#job");
+  box.classList.add("open");
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><b><span class="spin"></span> Scheduling ${n}…</b><button class="ghost" id="jobClose">✕</button></div><pre id="jobOut"></pre>`;
+  $("#jobClose").onclick = () => box.classList.remove("open");
+  const poll = async () => {
+    const j = await api("GET", `/api/job/${job}`);
+    const o = $("#jobOut"); if (o) { o.textContent = (j.out + (j.state === "failed" && j.err ? `\n${j.err}` : "")).slice(-4000); o.scrollTop = o.scrollHeight; }
+    if (j.state === "running") return setTimeout(poll, 1500);
+    box.querySelector("b").innerHTML = j.state === "done" ? "Done" : "It stopped. See why below.";
+    await load();
+  };
+  poll();
+};
+
+// ---------- ideas + library drawers ----------
+
+function closeDrawers() { if (!open) $("#scrim").classList.remove("open"); }
+$("#scrim").onclick = () => closeSheet();
+
+// ---------- places: the rail ----------
+
+const VIEWS = ["week", "know", "stuff", "brainstorm", "raw", "accounts", "make", "library"];
+let view = "week";
+function go() {
+  view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "week";
+  VIEWS.forEach((v) => ($(`#v-${v}`).hidden = v !== view));
+  document.querySelectorAll(".rail .place").forEach((a) => (a.dataset.view === view ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
+  ({ week: render, know: drawKnow, stuff: drawStuff, brainstorm: drawBrainstorm, raw: drawRaw, accounts: drawAccounts, make: drawMake, library: drawLibrary })[view]();
+}
+window.addEventListener("hashchange", go);
+function drawRail() {
+  $("#brand").textContent = S.brand;
+  const drafts = S.posts.filter((p) => p.status === "draft").length;
+  $("#nWeek").hidden = !drafts; $("#nWeek").textContent = drafts;
+  const todo = S.know?.todo || 0;
+  $("#nKnow").hidden = !todo; $("#nKnow").textContent = todo; $("#nKnow").title = `${todo} step${todo === 1 ? "" : "s"} left`;
+  $("#foot").innerHTML = `<div>Agent: <b>${S.agent ? "Claude Code" : "none found"}</b></div><div>fal: <b>${S.keys?.fal ? "key set" : "no key"}</b> · ElevenLabs: <b>${S.keys?.elevenlabs ? "key set" : "no key"}</b></div><div>${S.ideas.length} open idea${S.ideas.length === 1 ? "" : "s"}</div>`;
+}
+const head = (title, sub, extra = "") => `<div class="view-head"><div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ""}</div><div class="grow"></div>${extra}</div>`;
+const needAgent = () => (S.agent ? "" : `<div class="needkey" style="margin-bottom:14px">This needs Claude Code on this computer. Without it, open your agent in this folder and ask it the same thing.</div>`);
+const fileChip = (f, rm) => `<span class="chip-file">${/\.(png|jpe?g|webp|gif)$/i.test(f) ? `<img src="${media(f)}" alt="">` : "🎞"}${esc(f)}${rm ? `<button class="ghost small" data-rmf="${esc(f)}" aria-label="Remove">✕</button>` : ""}</span>`;
+const picker = (filter, onPick) => {
+  const items = S.library.filter(filter);
+  return items.length ? `<div class="grid" style="margin-top:8px">${items.map(tile).join("")}</div>` : `<div class="small muted" style="margin-top:6px">Nothing in the library yet. Drop one in.</div>`;
+};
+
+// ---------- Brainstorm ----------
+
+let BS = { text: "", files: [], angles: [], running: false, saved: "" };
+function drawBrainstorm() {
+  const days = [...Array(7)].map((_, i) => { const d = new Date(startOfWeek(new Date())); d.setDate(d.getDate() + i); return d; });
+  const taken = new Set(S.posts.map((p) => p.date));
+  const firstFree = days.find((d) => !taken.has(ymd(d)) && ymd(d) >= ymd(new Date())) || days[6];
+  $("#v-brainstorm").innerHTML = head("Brainstorm", "Bring a thought, a link or a picture. Your agent pitches five angles, each one giving the reader something real.") + needAgent() + `
+    <div class="cols">
+      <div>
+        <div class="panel">
+          <textarea id="bsText" rows="4" placeholder="What happened, what you shipped, a screenshot you're proud of, a take you can't shake…">${esc(BS.text)}</textarea>
+          <div class="chips">${BS.files.map((f) => fileChip(f, true)).join("")}</div>
+          <div class="drop" id="bsDrop" style="margin-top:10px">Drop a picture or clip, or <button class="ghost small" id="bsPick">pick from the library</button></div>
+          <div id="bsPicker"></div>
+          <div class="row" style="margin-top:12px"><button class="lit" id="bsGo" ${BS.running || !S.agent ? "disabled" : ""}>${BS.running ? `<span class="spin"></span> Thinking…` : "Brainstorm 5 angles"}</button>${BS.saved ? `<span class="small muted">Saved to ${esc(BS.saved)}</span>` : ""}</div>
+        </div>
+        <div class="angles">${BS.angles.map((a, i) => `
+          <div class="panel angle ${a.kept ? "kept" : ""}">
+            <div class="row">${a.topic ? `<span class="pill">${esc(a.topic)}</span>` : ""}<span class="pill gives">${esc(a.gives || "?")}</span>${a.kept ? `<span class="pill approved">${esc(a.kept)}</span>` : ""}</div>
+            <h3>${esc(a.angle)}</h3>
+            <div class="first">${esc(a.first_line)}</div>
+            <div class="small muted">Gives: ${esc(a.payload)}</div>
+            ${a.needs ? `<div class="needs">Needs from you: ${esc(a.needs)}</div>` : ""}
+            ${a.kept ? "" : `<div class="row" style="margin-top:10px">
+              <button data-keep="${i}" data-as="idea">Keep as idea</button>
+              <select data-day="${i}">${days.map((d) => `<option value="${ymd(d)}" ${ymd(d) === ymd(firstFree) ? "selected" : ""}>${esc(fmtDay(d))}${taken.has(ymd(d)) ? " ·" : ""}</option>`).join("")}</select>
+              <button class="primary" data-keep="${i}" data-as="draft">Draft it</button>
+              <button class="ghost" data-toss="${i}">Toss</button></div>`}
+          </div>`).join("")}</div>
+      </div>
+      <div class="panel">
+        <h3 style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft)">Ideas inbox</h3>
+        <div class="row" style="flex-wrap:nowrap"><input type="text" id="newIdea" placeholder="One line"><button id="addIdea">Add</button></div>
+        <ul class="ideas" style="padding-left:18px;margin:12px 0 0">${S.ideas.map((i) => `<li>${esc(i.text)} <button class="ghost small" data-use="${esc(i.text)}" title="Brainstorm from this">↗</button></li>`).join("") || `<li class="muted">No open ideas.</li>`}</ul>
+      </div>
+    </div>`;
+  const v = $("#v-brainstorm");
+  $("#bsText").oninput = (e) => (BS.text = e.target.value);
+  v.querySelectorAll("[data-rmf]").forEach((b) => (b.onclick = () => { BS.files = BS.files.filter((f) => f !== b.dataset.rmf); drawBrainstorm(); }));
+  $("#bsPick").onclick = () => {
+    const el = $("#bsPicker");
+    if (el.innerHTML) return (el.innerHTML = "");
+    el.innerHTML = picker((x) => x.type !== "audio");
+    el.querySelectorAll(".tile").forEach((t) => (t.onclick = () => { if (!BS.files.includes(t.dataset.file)) BS.files.push(t.dataset.file); drawBrainstorm(); }));
+  };
+  dropZone($("#bsDrop"), (file) => { BS.files.push(file); drawBrainstorm(); });
+  $("#bsGo").onclick = async () => {
+    BS.running = true; drawBrainstorm();
+    try {
+      const { job } = await api("POST", "/api/brainstorm", { text: BS.text, files: BS.files });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      BS.angles = j.angles || []; BS.saved = j.saved || "";
+    } catch (e) { alert(e.message); }
+    BS.running = false; if (view === "brainstorm") drawBrainstorm();
+  };
+  v.querySelectorAll("[data-keep]").forEach((b) => (b.onclick = async () => {
+    const i = Number(b.dataset.keep), a = BS.angles[i];
+    const r = await api("POST", "/api/keep", { angle: a, as: b.dataset.as, date: v.querySelector(`[data-day="${i}"]`)?.value, files: BS.files });
+    a.kept = r.kept === "draft" ? "drafted" : "kept"; await load(false); drawBrainstorm();
+    toast(r.kept === "draft" ? "Drafted: it's on the Week" : "Saved to your ideas");
+  }));
+  v.querySelectorAll("[data-toss]").forEach((b) => (b.onclick = () => { BS.angles.splice(Number(b.dataset.toss), 1); drawBrainstorm(); }));
+  v.querySelectorAll("[data-use]").forEach((b) => (b.onclick = () => { BS.text = b.dataset.use; drawBrainstorm(); $("#bsText").focus(); }));
+  const add = async () => { const t = $("#newIdea").value.trim(); if (!t) return; const r = await api("POST", "/api/idea", { text: t }); S.ideas = r.ideas; drawRail(); drawBrainstorm(); toast("Idea saved"); };
+  $("#addIdea").onclick = add; $("#newIdea").onkeydown = (e) => e.key === "Enter" && add();
+}
+
+// ---------- This week's raw ----------
+
+let RAW = null, rawTimer = null;
+async function drawRaw() {
+  if (!RAW || RAW.week !== S.week) RAW = await api("GET", `/api/raw?week=${S.week}`);
+  const wk = new Date(`${RAW.week}T12:00:00`);
+  const listEdit = (key, ph) => `<div class="list-edit">${RAW[key].map((x, i) => `<div class="row"><input type="text" data-k="${key}" data-i="${i}" value="${esc(x)}" placeholder="${ph}"><button class="ghost" data-rm="${key}" data-i="${i}" aria-label="Remove">✕</button></div>`).join("")}
+    <div class="row"><input type="text" data-new="${key}" placeholder="${ph}"><button data-add="${key}">Add</button></div></div>`;
+  $("#v-raw").innerHTML = head("This week's raw", `The week of ${esc(fmtDay(wk))}. Three real things are enough: a screenshot, a number, something that happened. The week gets drafted from these, so true things only.`) + needAgent() + `
+    <div class="cols">
+      <div class="stack" style="display:grid;gap:14px">
+        <div class="panel"><h3 class="label">Screenshots</h3>
+          <div class="list-edit">${RAW.shots.map((x, i) => `<div class="media-item">${/\.(mp4|mov)$/i.test(x.file) ? `<video src="${media(x.file)}" muted preload="metadata"></video>` : `<img src="${media(x.file)}" alt="">`}<input type="text" data-shot="${i}" value="${esc(x.note)}" placeholder="What it shows, in a few words"><button class="ghost" data-rmshot="${i}" aria-label="Remove">✕</button></div>`).join("")}</div>
+          <div class="drop" id="rawDrop" style="margin-top:10px">Drop a screenshot or clip</div></div>
+        <div class="panel"><h3 class="label">Numbers</h3>${listEdit("numbers", "e.g. 3 sign-ups, 40 hours saved, $0 MRR")}</div>
+        <div class="panel"><h3 class="label">What happened</h3>${listEdit("happened", "e.g. the app logged me out at midnight")}</div>
+      </div>
+      <div class="panel">
+        <h3 class="label">Then</h3>
+        <p class="small">Your agent drafts the week from these first, then from your ideas. Every post says what it gives, gets the substance check and the humanize pass, and lands on the Week as a draft. Nothing is scheduled.</p>
+        <button class="lit" id="draftWeek" ${S.agent ? "" : "disabled"} style="width:100%">Draft the week from this</button>
+        <pre id="draftOut" class="small" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre>
+      </div>
+    </div>`;
+  const v = $("#v-raw");
+  const save = () => { clearTimeout(rawTimer); rawTimer = setTimeout(async () => { RAW = await api("PUT", "/api/raw", RAW); drawRailRaw(); }, 400); };
+  v.querySelectorAll("[data-k]").forEach((inp) => (inp.oninput = () => { RAW[inp.dataset.k][inp.dataset.i] = inp.value; save(); }));
+  v.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { RAW[b.dataset.rm].splice(Number(b.dataset.i), 1); save(); drawRaw(); }));
+  v.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => { const inp = v.querySelector(`[data-new="${b.dataset.add}"]`); if (!inp.value.trim()) return; RAW[b.dataset.add].push(inp.value.trim()); save(); drawRaw(); }));
+  v.querySelectorAll("[data-new]").forEach((inp) => (inp.onkeydown = (e) => e.key === "Enter" && v.querySelector(`[data-add="${inp.dataset.new}"]`).click()));
+  v.querySelectorAll("[data-shot]").forEach((inp) => (inp.oninput = () => { RAW.shots[inp.dataset.shot].note = inp.value; save(); }));
+  v.querySelectorAll("[data-rmshot]").forEach((b) => (b.onclick = () => { RAW.shots.splice(Number(b.dataset.rmshot), 1); save(); drawRaw(); }));
+  dropZone($("#rawDrop"), async (file) => { RAW.shots.push({ file, note: "" }); RAW = await api("PUT", "/api/raw", RAW); drawRaw(); });
+  $("#draftWeek").onclick = async () => {
+    if (!confirm("Have your agent draft the week from this? It writes drafts only; nothing is scheduled.")) return;
+    const out = $("#draftOut"); out.innerHTML = `<span class="spin"></span> Drafting… (a few minutes)`;
+    try {
+      const { job } = await api("POST", "/api/draft-week", { week: RAW.week });
+      const j = await waitJob(job, (j) => (out.textContent = j.out.slice(-3000) || "Drafting…"));
+      out.textContent = j.state === "done" ? j.out.trim() : `It stopped:\n${(j.err || j.out).slice(-600)}`;
+      await load(false);
+    } catch (e) { out.textContent = e.message; }
+  };
+}
+function drawRailRaw() { const n = RAW ? RAW.shots.length + RAW.numbers.length + RAW.happened.length : 0; $("#nRaw").hidden = !n; $("#nRaw").textContent = n; }
+
+// ---------- Get to know you ----------
+
+let KN = { data: null, urls: "", draft: null, busy: "", out: "", aims: null, why: "" };
+async function drawKnow(reload = false) {
+  if (!KN.data || reload) KN.data = await api("GET", "/api/know");
+  const D = KN.data, A = D.about;
+  KN.aims ??= Object.keys(D.aims).filter((k) => A.goals.includes(D.aims[k]));
+  const goal = (re) => (A.goals.match(re) || [, ""])[1];
+  const next = D.past.find((p) => !p.verdict);
+  const judged = D.past.filter((p) => p.verdict && p.verdict !== "skip").length;
+  $("#v-know").innerHTML = head("Get to know you", "Three things make every post sound like you and aim somewhere: what you make (from your own links), what posting is for, and your real posts, one at a time. Your edits keep teaching it after that.", `<button id="knSync" ${KN.busy || !S.agent ? "disabled" : ""} title="Posthuman keeps a short About you that your phone and other chats read. This fills what's empty here from it, and sends this folder's version there (if Posthuman already has one, you see it as a suggestion to take or leave).">${KN.busy === "sync" ? `<span class="spin"></span> Syncing…` : "Sync with Posthuman"}</button>`) + needAgent() + `
+    ${KN.out ? `<div class="notes">${esc(KN.out)}</div>` : ""}
+    <div class="steps">
+      <div class="panel step ${A.what_it_is ? "done" : ""}">
+        <h2><span class="n1">1</span>What you make, or who you are</h2>
+        <div class="small muted">Got a website, app store page, shop or newsletter? Paste the links: your agent reads them and drafts brand/about.md from what's really on them. No website is fine too: say it in a few lines below, or skip this and it learns from your posts.</div>
+        ${A.what_it_is && !KN.draft ? `<div class="small" style="margin-top:8px;white-space:pre-wrap">${esc(A.what_it_is)}</div>` : ""}
+        <textarea id="knUrls" rows="2" style="margin-top:8px" placeholder="https://yourapp.com&#10;https://apps.apple.com/app/…">${esc(KN.urls)}</textarea>
+        <div class="row" style="margin-top:8px"><button class="lit" id="knRead" ${KN.busy || !S.agent ? "disabled" : ""}>${KN.busy === "links" ? `<span class="spin"></span> Reading…` : A.what_it_is ? "Read them again" : "Read them"}</button></div>
+        ${KN.draft ? "" : `<details style="margin-top:10px" ${A.what_it_is ? "" : "open"}><summary class="small"><b>No website? Say it instead</b></summary>
+          <label>What you make or post about</label><textarea id="sWhat" rows="2" placeholder="I'm a dad who builds small apps after the kids go to bed, and posts what happens.">${esc(A.what_it_is.split("\n")[0] || "")}</textarea>
+          <label>Who it's for</label><input type="text" id="sWho" value="${esc(A.who_its_for)}" placeholder="People with a day job building something on the side">
+          <div class="row" style="margin-top:8px"><button class="primary" id="knSay">Save it</button></div></details>`}
+        ${KN.draft ? `<div style="margin-top:10px">
+          <label>What it is</label><textarea id="dWhat" rows="2">${esc(KN.draft.what_it_is)}</textarea>
+          <label>Who it's for</label><input type="text" id="dWho" value="${esc(KN.draft.who_its_for)}">
+          <label>Facts a post can use (one per line, true ones only)</label><textarea id="dFacts" rows="4">${esc(KN.draft.facts.join("\n"))}</textarea>
+          <label>Links</label><textarea id="dLinks" rows="2">${esc(KN.draft.links.join("\n"))}</textarea>
+          <div class="row" style="margin-top:8px"><button class="primary" id="knSaveAbout">Put it in about.md</button><button class="ghost" id="knToss">Toss it</button></div></div>` : ""}
+      </div>
+      <div class="panel step ${A.goals ? "done" : ""}">
+        <h2><span class="n1">2</span>What posting is for</h2>
+        <div class="small muted">Every week aims at this, and "how did it do" is measured against it.</div>
+        <div class="tabs aims" style="margin-top:10px">${Object.entries(D.aims).map(([k, v]) => `<button data-aim="${k}" class="${KN.aims.includes(k) ? "on" : ""}">${esc(v)}</button>`).join("")}</div>
+        <label>It worked if…</label><input type="text" id="gNum" value="${esc(goal(/It worked if: (.+)/))}" placeholder="10 paying customers · 1,000 followers on X · 50 sign-ups">
+        <label>By when</label><input type="text" id="gBy" value="${esc(goal(/By: (.+)/))}" placeholder="Dec 16 · end of the year · no rush">
+        <label>Why it matters to you (optional)</label><input type="text" id="gWhy" value="${esc(goal(/Why it matters: (.+)/))}" placeholder="it would pay for the kids' camp">
+        <div class="row" style="margin-top:8px"><button class="primary" id="knGoals">Save the goal</button></div>
+      </div>
+      <div class="panel step ${judged >= 5 ? "done" : ""}">
+        <h2><span class="n1">3</span>Your posts, one at a time</h2>
+        <div class="small muted">Your real posts from Posthuman (bring in your last 50 on its Accounts screen first). For each: so me, or not me, and why in a few words. Ten is plenty. Every answer goes into brand/voice.md as your own line.</div>
+        <div class="row" style="margin-top:8px"><button class="lit" id="knPast" ${KN.busy || !S.agent ? "disabled" : ""}>${KN.busy === "past" ? `<span class="spin"></span> Bringing them in…` : D.past.length ? "Bring in new ones" : "Bring in your past posts"}</button>${D.past.length ? `<span class="small muted">${judged} looked at · ${D.left} to go</span>` : ""}</div>
+        ${next ? `<div class="past-card">
+            <div class="small muted">${esc(next.account)} · ${esc(fmtDay(new Date(`${next.date}T12:00:00`)))}${next.stats ? ` · ${esc(next.stats)}` : ""}</div>
+            <div class="words">${esc(next.words)}</div>
+            <input type="text" id="pWhy" value="${esc(KN.why)}" placeholder="Why, in a few words (“the joke's on me”, “too salesy”)">
+            <div class="row" style="margin-top:8px"><button class="ok" data-v="so me">So me</button><button data-v="not me">Not me</button><button class="ghost" data-v="skip">Skip</button></div>
+          </div>` : D.past.length ? `<p class="small" style="margin-top:8px">That's all of them. Your agent writes from brand/voice.md now, and keeps learning from your edits.</p>` : ""}
+      </div>
+    </div>`;
+  const v = $("#v-know");
+  $("#knUrls").oninput = (e) => (KN.urls = e.target.value);
+  $("#knSync").onclick = async () => {
+    KN.busy = "sync"; KN.out = ""; drawKnow();
+    try {
+      const { job } = await api("POST", "/api/know/sync");
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      const sent = { saved: "Sent to Posthuman: your phone and other chats know it now.", suggested: "Posthuman already had an About you, so this folder's version waits there as a suggestion: take it or leave it on its Accounts screen.", same: "Posthuman already matches.", skipped: "Nothing here to send yet." }[j.result] || "";
+      KN.out = [j.filled?.length ? `Filled from Posthuman: ${j.filled.join(", ")}.` : "", sent].filter(Boolean).join(" ") || "Done.";
+    } catch (e) { KN.out = e.message; }
+    KN.busy = ""; if (view === "know") drawKnow(true);
+  };
+  $("#knRead").onclick = async () => {
+    const urls = KN.urls.split(/\s+/).filter(Boolean);
+    if (!urls.length) return alert("Paste a link or two first.");
+    KN.busy = "links"; KN.out = ""; drawKnow();
+    try {
+      const { job } = await api("POST", "/api/know/links", { urls });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      KN.draft = j.about;
+    } catch (e) { KN.out = e.message; }
+    KN.busy = ""; if (view === "know") drawKnow();
+  };
+  $("#knSaveAbout") && ($("#knSaveAbout").onclick = async () => {
+    const lines = (id) => $(id).value.split("\n").map((x) => x.trim()).filter(Boolean);
+    await api("PUT", "/api/know/about", { what_it_is: $("#dWhat").value, who_its_for: $("#dWho").value, facts: lines("#dFacts"), links: lines("#dLinks") });
+    KN.draft = null; toast("Saved in brand/about.md"); drawKnow(true);
+  });
+  $("#knToss") && ($("#knToss").onclick = () => { KN.draft = null; drawKnow(); });
+  $("#knSay") && ($("#knSay").onclick = async () => {
+    const what = $("#sWhat").value.trim(), who = $("#sWho").value.trim();
+    if (!what && !who) return alert("A line or two is enough.");
+    const facts = A.what_it_is.split("\n").slice(1).map((x) => x.replace(/^- /, "")).filter(Boolean); // keep any facts already there
+    await api("PUT", "/api/know/about", { what_it_is: what, who_its_for: who, facts, links: [] });
+    toast("Saved in brand/about.md"); drawKnow(true);
+  });
+  v.querySelectorAll("[data-aim]").forEach((b) => (b.onclick = () => { const k = b.dataset.aim; KN.aims = KN.aims.includes(k) ? KN.aims.filter((x) => x !== k) : [...KN.aims, k]; b.classList.toggle("on"); }));
+  $("#knGoals").onclick = async () => {
+    try { await api("PUT", "/api/know/goals", { aims: KN.aims, number: $("#gNum").value, by: $("#gBy").value, why: $("#gWhy").value }); toast("Goal saved in brand/about.md"); drawKnow(true); }
+    catch (e) { alert(e.message); }
+  };
+  $("#knPast").onclick = async () => {
+    KN.busy = "past"; KN.out = ""; drawKnow();
+    try {
+      const { job } = await api("POST", "/api/know/past");
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      KN.out = j.none ? "No past posts in Posthuman yet. On its Accounts screen, press Bring in last 50 on each account, then come back." : j.count ? `Brought in ${j.count} posts.` : "Nothing new since last time.";
+    } catch (e) { KN.out = e.message; }
+    KN.busy = ""; if (view === "know") drawKnow(true);
+  };
+  $("#pWhy") && ($("#pWhy").oninput = (e) => (KN.why = e.target.value));
+  v.querySelectorAll("[data-v]").forEach((b) => (b.onclick = async () => {
+    if (b.dataset.v === "not me" && !KN.why.trim() && !confirm("No why? A few words (“too salesy”) is what teaches it. Save without one?")) return;
+    try { await api("POST", "/api/know/judge", { i: next.i, verdict: b.dataset.v, why: KN.why }); KN.why = ""; drawKnow(true); }
+    catch (e) { alert(e.message); }
+  }));
+}
+
+// ---------- Your stuff ----------
+
+let ST = { data: null, days: 60, picked: new Set(), open: null, busy: "", out: "", where: false, chosen: {} };
+const found = (p) => `/found?p=${encodeURIComponent(p)}&t=${TOKEN}`;
+async function drawStuff(reload = false) {
+  if (!ST.data || reload) ST.data = await api("GET", `/api/stuff?days=${ST.days}`);
+  const D = ST.data;
+  const none = !D.sources.media.length && !D.sources.projects.length;
+  const byWeek = new Map();
+  for (const m of D.media) { const k = ymd(startOfWeek(new Date(m.mtime))); if (!byWeek.has(k)) byWeek.set(k, []); byWeek.get(k).push(m); }
+  const list = (key, xs, ph) => `<ul style="padding:0;margin:6px 0">${xs.map((x, i) => `<li><span>${esc(x)}</span><button class="ghost small" data-rmsrc="${key}" data-i="${i}" aria-label="Remove">✕</button></li>`).join("") || `<li class="muted">None yet.</li>`}</ul>
+    <div class="row" style="flex-wrap:nowrap"><input type="text" data-newsrc="${key}" placeholder="${ph}"><button data-addsrc="${key}">Add</button></div>`;
+  $("#v-stuff").innerHTML = head("Your stuff", "The screenshots, clips and projects you already have, right where they are. Nothing is copied or sent anywhere until you pick something.", `<div class="row">
+      <select id="stDays">${[[7, "This week"], [30, "Last 30 days"], [60, "Last 60 days"], [365, "This year"]].map(([d, l]) => `<option value="${d}" ${ST.days === d ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <button class="lit" id="stPhone" ${ST.busy || !S.agent ? "disabled" : ""} title="What you saved for later on your phone (Posthuman): into the library and this week's raw">${ST.busy === "phone" ? `<span class="spin"></span> Bringing in…` : "Bring in from your phone"}</button></div>`) + `
+    ${ST.out ? `<div class="notes">${esc(ST.out)}</div>` : ""}
+    <details class="panel" ${none || ST.where ? "open" : ""} id="stWhere"><summary><b>Where to look</b> <span class="small muted">brand/sources.md</span></summary>
+      <div class="where" style="margin-top:10px">
+        <div><h3 class="label">Pictures and clips</h3><div class="small muted">Your Screenshots folder, screen recordings, the folder your phone's photos sync to.</div>${list("media", D.sources.media, "~/Pictures/Screenshots")}</div>
+        <div><h3 class="label">Projects</h3><div class="small muted">Folders with git: what you committed this week becomes raw material.</div>${list("projects", D.sources.projects, "~/code/my-app")}</div>
+      </div>
+    </details>
+    ${D.projects.length ? `<div class="panel project" style="margin-top:14px"><h3 class="label">This week in your projects</h3>${D.projects.map((p, i) => `<div style="margin-top:8px"><b>${esc(p.name)}</b> <span class="small muted">${p.commits} commit${p.commits === 1 ? "" : "s"} since Sunday</span>
+        ${p.subjects.length ? `<ul>${p.subjects.map((x, j) => `<li><label class="row" style="flex-wrap:nowrap;gap:6px"><input type="checkbox" data-pc="${i}" data-j="${j}" ${ST.chosen[`${i}:${j}`] ? "checked" : ""}> ${esc(x)}</label></li>`).join("")}</ul>` : ""}
+        ${p.commits ? `<button class="small" data-praw="${i}">Add to this week's raw</button>` : ""}</div>`).join("")}</div>` : ""}
+    <div class="row" style="margin-top:16px;justify-content:space-between">
+      <b>${D.media.length} picture${D.media.length === 1 ? "" : "s"} and clips</b>
+      <span class="row">${ST.picked.size ? `<span class="small muted">${ST.picked.size} picked</span>` : ""}<button class="primary" id="stDescribe" ${ST.busy || !S.agent || !D.media.length ? "disabled" : ""} title="Your agent looks at them and says what each shows and what post it could be (up to 12 at a time)">${ST.busy === "describe" ? `<span class="spin"></span> Looking…` : ST.picked.size ? "Describe the picked ones" : "Describe 12 new ones"}</button></span>
+    </div>
+    ${[...byWeek].map(([wk, ms]) => `<h3 class="label" style="margin-top:16px">Week of ${esc(fmtDay(new Date(`${wk}T12:00:00`)))}</h3><div class="stuff-grid">${ms.map((m) => `<div class="stuff ${ST.picked.has(m.path) ? "picked" : ""}">
+        <div class="pic" data-open="${esc(m.path)}">${m.kind === "video" ? `<video src="${found(m.path)}" muted preload="metadata"></video>` : `<img src="${found(m.path)}" alt="${esc(m.says || "")}" loading="lazy">`}<input type="checkbox" data-pick="${esc(m.path)}" ${ST.picked.has(m.path) ? "checked" : ""} aria-label="Pick"></div>
+        <div class="cap">${m.says ? `<span>${esc(m.says)}</span>` : `<span class="muted">${esc(m.shown.split("/").pop())}</span>`}${m.angle ? `<span class="angle">${esc(m.angle)}</span>` : ""}</div>
+        ${ST.open === m.path ? `<div class="acts"><button data-use="${esc(m.path)}" data-raw="1">Into this week's raw</button><button data-use="${esc(m.path)}" data-bs="1">Brainstorm from it</button><button class="ghost" data-use="${esc(m.path)}">Copy to library</button></div>` : ""}
+      </div>`).join("")}</div>`).join("") || (D.sources.media.length ? `<p class="small muted">Nothing in those folders from that time.</p>` : "")}`;
+  const v = $("#v-stuff");
+  $("#stWhere").ontoggle = (e) => (ST.where = e.target.open);
+  $("#stDays").onchange = (e) => { ST.days = Number(e.target.value); drawStuff(true); };
+  const saveSrc = async (next) => { try { await api("PUT", "/api/sources", next); ST.where = true; drawStuff(true); } catch (e) { alert(e.message); } };
+  v.querySelectorAll("[data-addsrc]").forEach((b) => (b.onclick = () => { const k = b.dataset.addsrc, val = v.querySelector(`[data-newsrc="${k}"]`).value.trim(); if (!val) return; saveSrc({ ...D.sources, [k]: [...D.sources[k], val] }); }));
+  v.querySelectorAll("[data-newsrc]").forEach((inp) => (inp.onkeydown = (e) => e.key === "Enter" && v.querySelector(`[data-addsrc="${inp.dataset.newsrc}"]`).click()));
+  v.querySelectorAll("[data-rmsrc]").forEach((b) => (b.onclick = () => { const k = b.dataset.rmsrc; saveSrc({ ...D.sources, [k]: D.sources[k].filter((_, i) => i !== Number(b.dataset.i)) }); }));
+  v.querySelectorAll("[data-pick]").forEach((c) => (c.onclick = (e) => { e.stopPropagation(); c.checked ? ST.picked.add(c.dataset.pick) : ST.picked.delete(c.dataset.pick); drawStuff(); }));
+  v.querySelectorAll("[data-open]").forEach((d) => (d.onclick = (e) => { if (e.target.matches("input")) return; ST.open = ST.open === d.dataset.open ? null : d.dataset.open; drawStuff(); }));
+  v.querySelectorAll("[data-pc]").forEach((c) => (c.onchange = () => (ST.chosen[`${c.dataset.pc}:${c.dataset.j}`] = c.checked)));
+  v.querySelectorAll("[data-praw]").forEach((b) => (b.onclick = async () => {
+    const i = Number(b.dataset.praw), p = D.projects[i];
+    const r = await api("GET", `/api/raw?week=${D.week}`);
+    const num = `${p.commits} commit${p.commits === 1 ? "" : "s"} on ${p.name} this week`;
+    r.numbers = [...r.numbers.filter((x) => !x.endsWith(`on ${p.name} this week`)), num];
+    const picked = p.subjects.filter((_, j) => ST.chosen[`${i}:${j}`]);
+    r.happened = [...r.happened, ...picked.map((x) => `${p.name}: ${x}`).filter((x) => !r.happened.includes(x))];
+    RAW = await api("PUT", "/api/raw", r); drawRailRaw();
+    toast(picked.length ? `Added the number and ${picked.length} thing${picked.length === 1 ? "" : "s"} you did` : "Added the number: tick commits to add what you did too");
+  }));
+  v.querySelectorAll("[data-use]").forEach((b) => (b.onclick = async () => {
+    const m = D.media.find((x) => x.path === b.dataset.use);
+    try {
+      const r = await api("POST", "/api/stuff/use", { path: m.path, raw: !!b.dataset.raw, note: m.says || "" });
+      await load(false);
+      if (b.dataset.bs) { BS.files = [...new Set([...BS.files, r.file])]; BS.text ||= m.angle || ""; location.hash = "#brainstorm"; return; }
+      toast(b.dataset.raw ? "In this week's raw (and the library)" : `In the library as ${r.file}`);
+    } catch (e) { alert(e.message); }
+  }));
+  $("#stDescribe").onclick = async () => {
+    const paths = ST.picked.size ? [...ST.picked] : D.media.filter((m) => !m.says && m.kind === "image").slice(0, 12).map((m) => m.path);
+    if (!paths.length) return alert("Everything here has been looked at. Pick some to look again.");
+    if (!confirm(`Have your agent look at ${Math.min(12, paths.length)} of your pictures? They're read on this computer by your own agent (Claude Code), nothing else.`)) return;
+    ST.busy = "describe"; ST.out = ""; drawStuff();
+    try {
+      const { job } = await api("POST", "/api/stuff/describe", { paths });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      ST.picked.clear(); ST.out = `Looked at ${j.described}. What each shows and the post it could be are under the pictures (and in library/found.md).`;
+    } catch (e) { ST.out = e.message; }
+    ST.busy = ""; if (view === "stuff") drawStuff(true);
+  };
+  $("#stPhone").onclick = async () => {
+    ST.busy = "phone"; ST.out = ""; drawStuff();
+    try {
+      const { job } = await api("POST", "/api/stuff/phone");
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      ST.out = j.pulled?.length ? `Brought in ${j.pulled.length} from your phone: ${j.pulled.map((x) => x.note || x.file).join(", ")}. They're in the library and this week's raw.` : "Nothing new saved on your phone. Share a photo to Posthuman and tap Save for later.";
+      await load(false);
+    } catch (e) { ST.out = e.message; }
+    ST.busy = ""; if (view === "stuff") drawStuff(true);
+  };
+}
+
+// ---------- Accounts ----------
+
+let AC = { busy: false, out: "" };
+function drawAccounts() {
+  const A = S.accounts || { accounts: [] };
+  const ph = A.posthuman ? `${A.posthuman}/accounts` : "";
+  const synced = A.synced ? new Date(A.synced).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(Array.isArray(v) ? v.join("; ") : v)}</dd>` : "");
+  $("#v-accounts").innerHTML = head("Accounts", "How each account works, as you set it up in Posthuman (Make it yours): who reads it, how you sound there, what goes there, how often, the hard no's. Your agent writes to fit it, and the Week flags a post that breaks a no.", `<div class="row">${ph ? `<a class="small" href="${esc(ph)}" target="_blank" rel="noopener">Change it in Posthuman ↗</a>` : ""}<button class="lit" id="acRefresh" ${AC.busy || !S.agent ? "disabled" : ""}>${AC.busy ? `<span class="spin"></span> Refreshing…` : "Refresh from Posthuman"}</button></div>`) + needAgent() + `
+    ${synced ? `<p class="small muted" style="margin-top:-6px">This copy is from ${esc(synced)} (brand/accounts.md).</p>` : `<div class="panel small" style="margin-bottom:14px">No copy here yet. Press <b>Refresh from Posthuman</b>, or open your agent in this folder: it refreshes the copy at the start of every session.</div>`}
+    ${AC.out ? `<div class="notes">${esc(AC.out)}</div>` : ""}
+    <div class="acct-grid">${A.accounts.map((a) => `<div class="panel acct-card ${a.setup ? "" : "unset"}">
+      <div class="row" style="justify-content:space-between"><h3>${esc(a.account)}</h3>${a.setup ? "" : `<span class="pill">not set up</span>`}</div>
+      ${a.setup ? `<dl>${row("Who reads it", a.setup.who_reads_it)}${row("Sounds", a.setup.sounds)}${row("What goes here", a.setup.what_goes_here)}${row("How often", a.setup.how_often)}${row("Never", a.setup.never)}</dl>${a.setup.like_this ? `<div class="example">${esc(a.setup.like_this)}</div>` : ""}`
+        : `<p class="small">Six quick answers make it yours. Answer them in Posthuman${ph ? ` (<a href="${esc(ph)}" target="_blank" rel="noopener">Accounts</a>)` : ""}, or tell your agent: “set up my ${esc(platformOf(a.account).name)} account”. It asks them one at a time.</p>`}
+    </div>`).join("")}</div>`;
+  $("#acRefresh").onclick = async () => {
+    AC.busy = true; AC.out = ""; drawAccounts();
+    try {
+      const { job } = await api("POST", "/api/accounts/refresh");
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      await load(false); toast(`${j.count} account${j.count === 1 ? "" : "s"} refreshed`);
+    } catch (e) { AC.out = e.message; }
+    AC.busy = false; if (view === "accounts") drawAccounts();
+  };
+}
+
+// ---------- Make ----------
+
+function drawMake() {
+  const R = S.recipes || {}, K = S.keys || {};
+  const photos = S.library.filter((x) => /\.(jpe?g|png|webp)$/i.test(x.file));
+  const clips = S.library.filter((x) => /\.(mp4|mov)$/i.test(x.file));
+  const opts = (xs) => xs.map((x) => `<option value="${esc(x.file)}">${esc(x.alt || x.file)}</option>`).join("");
+  const missing = (k) => (k === "fal" ? !K.fal && "Add FAL_KEY to .env (fal.ai/dashboard/keys)." : !K.elevenlabs && "Add ELEVENLABS_API_KEY (and ELEVENLABS_VOICE_ID) to .env.");
+  const card = (id, body) => `<div class="panel recipe"><h3>${esc(R[id]?.title || id)}</h3><div class="cost">${esc(R[id]?.cost || "")} · paid to the service with your key</div>${missing(R[id]?.needs) ? `<div class="needkey">${esc(missing(R[id].needs))}</div>` : ""}${body}<button class="lit" data-make="${id}" style="margin-top:12px" ${missing(R[id]?.needs) ? "disabled" : ""}>Make it</button><pre class="small" id="out-${id}" style="white-space:pre-wrap"></pre></div>`;
+  $("#v-make").innerHTML = head("Make", "Pictures, clips and voiceovers, made on your computer with your own keys. Everything lands in the Library. Your own photos and clips beat made-up ones.") + `
+    <div class="recipes">
+      ${card("video", `<label>Your photo</label>${photos.length ? `<select id="m-photo">${opts(photos)}</select>` : `<div class="small muted">Add a photo to the Library first.</div>`}<label>The motion</label><input type="text" id="m-motion" placeholder="a slow push-in, steam rising from the mug">`)}
+      ${card("voiceover", `<label>Your clip</label>${clips.length ? `<select id="m-clip">${opts(clips)}</select>` : `<div class="small muted">Add a clip to the Library first.</div>`}<label>Script (about 2.5 words a second)</label><textarea id="m-script" rows="3"></textarea><label>Voice id (optional)</label><input type="text" id="m-voice" placeholder="from .env if empty">`)}
+      ${card("image", `<label>What it shows</label><input type="text" id="m-prompt" placeholder="a printed worksheet on a wooden kitchen table, morning light"><label>Shape</label><select id="m-size"><option value="4:5">4:5 Instagram</option><option value="2:3">2:3 Pinterest</option><option value="1:1">1:1 square</option><option value="9:16">9:16 Reels, TikTok</option></select>`)}
+    </div>`;
+  $("#v-make").querySelectorAll("[data-make]").forEach((b) => (b.onclick = async () => {
+    const id = b.dataset.make, out = $(`#out-${id}`);
+    const o = id === "video" ? { photo: $("#m-photo")?.value, motion: $("#m-motion").value } : id === "voiceover" ? { clip: $("#m-clip")?.value, script: $("#m-script").value, voice: $("#m-voice").value } : { prompt: $("#m-prompt").value, size: $("#m-size").value };
+    if (!confirm(`Make it? It costs ${R[id].cost}, paid to the service with your key.`)) return;
+    out.innerHTML = `<span class="spin"></span> Making…`;
+    try {
+      const r = await api("POST", "/api/make", { recipe: id, ...o });
+      const j = await waitJob(r.job);
+      out.textContent = j.state === "done" ? `Done: ${r.file}. It's in the Library.` : `It stopped:\n${(j.err || j.out).slice(-600)}`;
+      await load(false);
+    } catch (e) { out.textContent = e.message; }
+  }));
+}
+
+// ---------- Library ----------
+
+function drawLibrary() {
+  $("#v-library").innerHTML = head("Library", "Everything made or dropped in, newest first. Click one to describe it: the description becomes its alt text.") + `
+    <div class="drop" id="libDrop">Drop pictures, clips or audio here</div>
+    <div class="grid" style="margin-top:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${S.library.map(tile).join("")}</div>${S.library.length ? "" : `<p class="small muted">Nothing yet.</p>`}`;
+  dropZone($("#libDrop"), () => drawLibrary());
+  $("#v-library").querySelectorAll(".tile").forEach((t) => (t.onclick = async () => {
+    const x = S.library.find((y) => y.file === t.dataset.file);
+    const alt = prompt(`Describe ${x.file} in one sentence (alt text):`, x.alt || "");
+    if (alt === null) return;
+    await api("PUT", "/api/alt", { file: x.file, alt }); x.alt = alt; drawLibrary(); toast("Description saved");
+  }));
+}
+
+function dropZone(el, done) {
+  el.ondragover = (e) => { e.preventDefault(); el.classList.add("over"); };
+  el.ondragleave = () => el.classList.remove("over");
+  el.ondrop = async (e) => {
+    e.preventDefault(); el.classList.remove("over");
+    for (const f of e.dataTransfer.files) {
+      el.innerHTML = `<span class="spin"></span> Adding ${esc(f.name)}…`;
+      try {
+        const r = await api("POST", `/api/upload?name=${encodeURIComponent(f.name)}`, f, true);
+        await load(); await done(r.file);
+        toast(`Added ${r.file}`);
+      } catch (err) { alert(err.message); }
+    }
+  };
+}
+
+// ---------- keys, week nav ----------
+
+$("#prev").onclick = () => { weekStart.setDate(weekStart.getDate() - 7); render(); };
+$("#next").onclick = () => { weekStart.setDate(weekStart.getDate() + 7); render(); };
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); if (open?.dirty) save(); }
+  if (e.key === "Escape") { if (document.querySelector(".drawer.open")) closeDrawers(); else if (open) closeSheet(); }
+  if (e.key === "Enter" && e.target.classList?.contains("card")) openPost(e.target.dataset.slug);
+});
+window.addEventListener("beforeunload", (e) => { if (open?.dirty) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("focus", () => { if (!open && view === "week") load(); }); // the agent may have changed files meanwhile
+
+load().then(() => {
+  if (!location.hash && S.know?.todo === 3) location.hash = "#know"; // a new folder starts by getting to know them
+  go();
+  // start on the week of the next post that still needs you, if there is one
+  const next = S.posts.filter((p) => p.date && ["draft", "approved"].includes(p.status)).map((p) => p.date).sort()[0];
+  if (next && next > ymd(new Date(weekStart.getTime() + 6 * 864e5))) { weekStart = startOfWeek(new Date(`${next}T12:00:00`)); render(); }
+});
+</script>
+</body>
+</html>
