@@ -1,5 +1,6 @@
 ---
 status: draft        # idea | draft | approved | scheduled | posted | dropped
+brand:               # blank = the main brand (brand/); or a folder in brands/, e.g. kitchen-table
 when:                # e.g. 2026-11-24 19:30, or "next free time"
 accounts: []         # e.g. [instagram @shop, threads @shop]
 posthuman_post_id:

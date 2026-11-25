@@ -11,8 +11,9 @@
 //   - how often: one a day, evenings
 //   - never: hashtags; naming my day job, Acme
 //   - like this: Day 3 of building after the kids go to bed…
+//   - posts so far: 46        (how many past posts Posthuman has for it; 0 = a brand-new account, see introFor)
 
-const KEYS = { account_id: "account_id", "who reads it": "who_reads_it", sounds: "sounds", "what goes here": "what_goes_here", "how often": "how_often", never: "never", "like this": "like_this" };
+const KEYS = { account_id: "account_id", "posts so far": "posts", "who reads it": "who_reads_it", sounds: "sounds", "what goes here": "what_goes_here", "how often": "how_often", never: "never", "like this": "like_this" };
 
 export function parseAccounts(text = "") {
   const out = [];
@@ -25,7 +26,7 @@ export function parseAccounts(text = "") {
     }
     const h = line.match(/^## +(.+?)\s*$/);
     if (h) {
-      out.push((cur = { account: h[1].trim(), setup: null }));
+      out.push((cur = { account: h[1].trim(), setup: null, posts: null }));
       continue;
     }
     const kv = cur && line.match(/^\s*[-*]\s*([a-z_ ]+):\s*(.*)$/i);
@@ -33,6 +34,7 @@ export function parseAccounts(text = "") {
     const k = KEYS[kv[1].trim().toLowerCase()];
     if (!k) continue;
     if (k === "account_id") cur.account_id = Number(kv[2]) || null;
+    else if (k === "posts") cur.posts = /^\d+$/.test(kv[2].trim()) ? Number(kv[2]) : null;
     else if (/^not yet/i.test(kv[2])) continue;
     else {
       cur.setup ??= {};
@@ -50,6 +52,7 @@ export function writeAccounts(accounts, { url = "", now = new Date() } = {}) {
     return [
       `## ${line(a.account)}`,
       a.account_id ? `- account_id: ${a.account_id}` : "",
+      Number.isInteger(a.past_posts ?? a.posts) ? `- posts so far: ${a.past_posts ?? a.posts}` : "",
       ...(s
         ? [
             s.who_reads_it && `- who reads it: ${line(s.who_reads_it)}`,
@@ -103,5 +106,39 @@ export function fitCheck(setup, words) {
       if (new RegExp(`(^|[^\\p{L}\\d])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\p{L}\\d])`, "iu").test(words)) out.push({ issue: `names “${w}”, which this account never names`, fix: "Leave it out here." });
     }
   }
+  return out;
+}
+
+// ---------- a brand-new account (AGENTS.md: "A new account says hello") ----------
+// Search-first platforms: people find posts there by searching, so a hello reaches no one.
+const SEARCH_FIRST = /pinterest|google/i;
+
+/** Should this account get an intro? "yes", "skip" (search-first platform), or "" (not new, or we don't know).
+ *  postAccounts: the account lines of every post file in posts/ (any status but dropped). */
+export function introFor(a, all, postAccounts = []) {
+  if (a.posts !== 0) return ""; // only when Posthuman says it has no posts yet (null = an older copy: unknown)
+  // something is already written for it: same platform (setupFor alone would match "X @shop" to "Threads @shop")
+  const first = (s) => String(s).trim().toLowerCase().split(/\s+/)[0];
+  if (postAccounts.some((line) => first(line) === first(a.account) && setupFor(line, all) === a)) return "";
+  return SEARCH_FIRST.test(a.account) ? "skip" : "yes";
+}
+
+// ---------- "you choose" (AGENTS.md: suggested setups, saved on the user's yes) ----------
+export const ROLES = { own: "its own posts, written for here", copy: "the same posts as my main account", big: "only the big moments" };
+
+/** The six answers as Posthuman's set_up_account takes them → the setup shape the briefing gives back. */
+export function answersToSetup(x = {}) {
+  const line = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+  const never = [x.no_hashtags && "hashtags", x.no_links && "links", x.no_emoji && "emoji", line(x.never_name) && `naming ${line(x.never_name)}`].filter(Boolean);
+  const s = { who_reads_it: line(x.audience), sounds: line(x.sound), what_goes_here: ROLES[x.role] || "", how_often: line(x.rhythm), never, like_this: String(x.example ?? "").trim() };
+  for (const k of Object.keys(s)) if (!s[k] || (Array.isArray(s[k]) && !s[k].length)) delete s[k];
+  return s;
+}
+
+/** Only the fields set_up_account takes, cleaned (what an agent suggested may carry anything). */
+export function cleanAnswers(x = {}) {
+  const str = (s, n) => String(s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  const out = { audience: str(x.audience, 200), sound: str(x.sound, 200), role: ROLES[x.role] ? x.role : "own", rhythm: str(x.rhythm, 120), never_name: str(x.never_name, 200), example: String(x.example ?? "").trim().slice(0, 600), no_hashtags: !!x.no_hashtags, no_links: !!x.no_links, no_emoji: !!x.no_emoji };
+  for (const k of ["audience", "sound", "rhythm", "never_name", "example"]) if (!out[k]) delete out[k];
   return out;
 }

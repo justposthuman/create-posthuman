@@ -72,6 +72,72 @@ r = run("node", ["tools/humanize.mjs", "posts/2026-11-25-ai.md"], dir);
 ok(r.status === 1 && /stock phrase/.test(r.stdout) && /hype emoji/.test(r.stdout), "humanize CLI: flags a post file, exit 1");
 fs.rmSync(path.join(dir, "posts/2026-11-25-ai.md"));
 
+// ---------- the user's own no's (brand/voice.md) ----------
+const HR = await import(path.join(dir, "tools/humanize-rules.mjs"));
+const vr = HR.parseVoice(`## Voice
+- Every post opens a conversation: end with a real ask or a convo starter people can answer.
+- Plain everyday words. Skip the fancy one ("gratifying") when there's a simpler one (Sam, 11-24).
+
+## Never do
+- Don't end with "tell me what's bad" (Sam, 11-25: "Stop telling me to tell them it's bad").
+- Never end on a tidy moral (Sam, 11-24: "sure").
+- Not me: "Bought a standing desk to be more productive, and now I mostly stand there reading reviews of other standing desks." (X, Oct 16). Sam: "all AI lol".
+<!-- fill: "no hashtags" -->
+`);
+ok(vr.endsWithAsk && vr.banned.includes("tell me what's bad") && vr.banned.includes("gratifying"), "voice: quoted no's are read, from Never do and after a no elsewhere");
+ok(!vr.banned.some((b) => /sure|stop telling|all ai|no hashtags|\(x, oct/.test(b)), "…but not the user's reactions, long quotes, the gap between two quotes, or the fill comments");
+ok(HR.parseVoice(fs.readFileSync(path.join(dir, "brand/voice.md"), "utf8")).banned.length === 0, "…and the starter voice file has none");
+const vt = (w) => HR.check(w, { voice: vr }).map((x) => x.tell);
+ok(vt("Built a thing.\n\nTell me what\u2019s bad.").includes("your never-do") && vt("A gratifying day.").includes("your never-do") && !vt("Gratifyingly plain? Yes?").includes("your never-do"), "humanize: flags the user's own never-do phrases, whole words only");
+ok(vt("Try it free on the App Store.\n---\nhttps://x.test").includes("no ask at the end") && !vt("What are you building?\n---\nhttps://x.test").includes("no ask at the end") && !vt("Would you use it? 🤙").includes("no ask at the end"), "…and a post with no question when the voice says every post ends with an ask");
+ok(!HR.check("Try it free.").some((x) => x.tell === "no ask at the end"), "…only when the voice says so");
+
+// ---------- lengths (tools/length-rules.mjs) ----------
+const LR = await import(path.join(dir, "tools/length-rules.mjs"));
+const helloPost = "Never said who's behind this account.\n\nI'm Sam, a dev and dad of two. I built Hatch because I kept dropping the ball on stuff that mattered to me. Reminders weren't cutting it.\n\nSo it checks in first, at your times, and remembers what you said you'd do.\n\nWhat habit do you keep dropping?";
+ok(LR.lengthsFor("X @shop", helloPost)[0].length === 287, "length: X counts like X does (287, the same as Posthuman's check_post)");
+ok(LR.lengthOn(LR.platformOf("X @shop"), "see https://example.test/a/very/long/link/that/goes/on") === 27 && LR.lengthOn(LR.platformOf("X @shop"), "hi 👋") === 5 && LR.lengthOn(LR.platformOf("Bluesky @s.bsky.social"), "hi 👋") === 4, "…a link is 23 on X, an emoji 2 on X and 1 on Bluesky");
+ok(LR.lengthCheck("X @shop", "a".repeat(200) + "\n---\n" + "b".repeat(281))[0]?.issue.startsWith("part 2 is 281") && LR.lengthCheck("Instagram @shop", "a".repeat(2000) + "\n---\n" + "b".repeat(300)).length === 1, "…each part on a thread platform, the whole post elsewhere");
+ok(LR.lengthCheck("Telegram shop", "a".repeat(1100)).length === 0 && LR.lengthCheck("Telegram shop", "a".repeat(1100), { media: 1 }).length === 1 && LR.platformOf("Threads @shop.dev")?.name === "Threads" && LR.platformOf("Pinterest Kitchen Table")?.limit === 800, "…Telegram's shorter caption with media, and account lines find their platform");
+
+// ---------- post files (tools/post-rules.mjs) ----------
+const PR = await import(path.join(dir, "tools/post-rules.mjs"));
+const longPost = `---
+status: draft
+accounts: [X @shop, Threads @shop, Mastodon @shop@mastodon.social, Bluesky @shop.bsky.social]
+---
+
+# Words
+
+## Everywhere
+Main words.
+
+## Per account (only where it differs)
+- Mastodon @shop@mastodon.social: …same words… + #buildinpublic
+- Bluesky @shop.bsky.social: First line.\\nSecond line.
+### Threads @shop
+Hi Threads.
+
+- a list line stays in the words
+---
+The link: https://example.test
+
+# Notes
+Keep me.
+`;
+const pp = PR.parsePost(longPost);
+ok(pp.per.length === 3 && pp.per[2].account === "Threads @shop" && pp.per[2].words === "Hi Threads.\n\n- a list line stays in the words\n---\nThe link: https://example.test", "post file: an account's own words can run over many lines under ### (with their own thread parts)");
+ok(pp.per[1].words === "First line.\nSecond line." && PR.wordsFor(pp, "Mastodon @shop@mastodon.social") === "Main words.\n\n#buildinpublic" && PR.wordsFor(pp, "X @shop") === "Main words.", "…an old one-liner with \\n typed out still reads, and …same words… still expands");
+const again = PR.parsePost(PR.writePost(pp));
+ok(JSON.stringify(again.per) === JSON.stringify(pp.per) && PR.writePost(pp).includes("### Threads @shop\nHi Threads.") && PR.writePost(pp).includes("Keep me."), "…and writing it back keeps every account's words and the rest of the file");
+fs.writeFileSync(path.join(dir, "brand/voice.md"), "# Voice\n\n## Voice\n- End with a real question people can answer.\n\n## Never do\n- Don't end with \"tell me what's bad\".\n");
+fs.writeFileSync(path.join(dir, "posts/2026-11-25-long.md"), longPost.replace("Main words.", "Main words. Tell me what's bad.\n\n" + "word ".repeat(60).trim()));
+r = run("node", ["tools/humanize.mjs", "posts/2026-11-25-long.md"], dir);
+ok(r.status === 1 && /your never-do: "tell me what's bad"/.test(r.stdout) && /X @shop: it's 3\d\d characters; X takes 280/.test(r.stdout) && /no ask at the end/.test(r.stdout), "humanize CLI: reads brand/voice.md, and says which account is too long and by how much");
+fs.rmSync(path.join(dir, "posts/2026-11-25-long.md"));
+fs.copyFileSync(path.join(path.resolve("template"), "brand/voice.md"), path.join(dir, "brand/voice.md"));
+ok(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8").includes("**The angle is theirs.**") && !/draft from it first, then from ideas\/inbox/.test(fs.readFileSync(path.join(dir, "tools/studio-more.mjs"), "utf8")), "drafting waits for the user's angle (AGENTS.md, and Studio's Draft the week)");
+
 // ---------- substance check ----------
 const { substance } = await import(path.join(dir, "tools/substance-rules.mjs"));
 const issues = (p) => substance(p).map((x) => x.issue);
@@ -257,6 +323,12 @@ try {
   r = await fetch(base + "/api/post/2026-11-24-hello", { method: "PUT", headers: h, body: JSON.stringify({ gives: "tip", payload: "check the charge date # not a comment\nnew line" }) });
   const gv = (await r.json()).post;
   ok(gv.gives === "tip" && gv.payload === "check the charge date   not a comment new line" && fs.readFileSync(path.join(dir, "posts/2026-11-24-hello.md"), "utf8").includes("gives: tip"), "what it gives + its payload save into the frontmatter, kept on one line");
+  ok(Array.isArray(p.long) && st.voice && Array.isArray(st.voice.banned) && (await fetch(`${base}/length-rules.mjs?t=${token}`)).status === 200 && (await fetch(`${base}/post-rules.mjs?t=${token}`)).status === 200, "…with its length flags, the voice rules and the shared length and post rules for the page");
+  r = await fetch(base + "/api/post/2026-11-24-hello", { method: "PUT", headers: h, body: JSON.stringify({ per: [{ account: "Mastodon", words: "…same words… + #buildinpublic" }, { account: "Bluesky", words: "Line one.\n\nLine two.\n---\nhttps://example.test" }] }) });
+  const pl = (await r.json()).post;
+  ok(r.status === 200 && pl.per[1].words === "Line one.\n\nLine two.\n---\nhttps://example.test" && fs.readFileSync(path.join(dir, "posts/2026-11-24-hello.md"), "utf8").includes("### Bluesky\nLine one."), "an account's own words on many lines save whole (they used to keep only the first line)");
+  r = await fetch(base + "/api/post/2026-11-24-hello", { method: "PUT", headers: h, body: JSON.stringify({ everywhere: "x".repeat(300) }) });
+  ok((await r.json()).post.long.some((f) => f.account === "X @shop" && /X takes 280/.test(f.issues[0].issue)), "a post too long for one of its accounts is flagged on its card");
   r = await fetch(base + "/api/post/2026-11-24-hello", { method: "PUT", headers: h, body: JSON.stringify({ everywhere: "stale", mtime: p.mtime }) });
   ok(r.status === 409, "a save over a file that changed since (the agent's work) is refused");
   ok((await fetch(base + "/api/post/..%2Fbrand%2Fvoice", { method: "PUT", headers: h, body: "{}" })).status === 404, "no writing outside posts/");
@@ -354,6 +426,189 @@ try {
 const { parseAngles } = await import(path.join(dir, "tools/studio-more.mjs"));
 const pa = parseAngles('Sure! Here you go:\n[{"angle":"A","gives":"TIP","payload":"p","first_line":"f"},{"angle":"B","gives":"weird"}]\nHope that helps');
 ok(pa.length === 2 && pa[0].gives === "tip" && pa[1].gives === "", "brainstorm answers are read even with words around them; unknown kinds left blank");
+
+// ---------- new accounts and "you choose" (tools/account-rules.mjs) ----------
+const AR2 = await import(path.join(dir, "tools/account-rules.mjs"));
+const fresh = AR2.parseAccounts(AR2.writeAccounts([
+  { account_id: 21, account: "Threads @shop", setup: "not yet", past_posts: 0 },
+  { account_id: 22, account: "X @shop", setup: { never: ["hashtags"] }, past_posts: 46 },
+  { account_id: 23, account: "Pinterest Shop Boards", setup: "not yet", past_posts: 0 },
+  { account_id: 24, account: "Bluesky shop.bsky.social", setup: "not yet" },
+  { account_id: 25, account: "Instagram @shop", setup: "not yet", past_posts: 0 },
+]));
+ok(fresh[0].posts === 0 && fresh[1].posts === 46 && fresh[3].posts === null, "accounts: how many posts each has is kept (and unknown stays unknown)");
+const intro = fresh.map((a) => AR2.introFor(a, fresh, ["Instagram @shop"]));
+ok(intro.join("|") === "yes||skip||" && AR2.introFor(fresh[0], fresh, ["X @shop"]) === "yes" && AR2.introFor(fresh[0], fresh, ["Threads"]) === "", "intro: only a brand-new account with nothing written for it; Pinterest is skipped; an old copy with no count gets none");
+const sug = AR2.cleanAnswers({ audience: " parents  of kids ", role: "boss", no_hashtags: 1, example: "", why: "x", evil: "drop table" });
+ok(sug.role === "own" && sug.audience === "parents of kids" && sug.no_hashtags === true && !("example" in sug) && !("evil" in sug) && !("why" in sug), "you choose: an agent's suggestion is cut down to the six answers");
+const st6 = AR2.answersToSetup({ audience: "parents", sound: "warm", role: "big", rhythm: "weekly", no_links: true, never_name: "Acme", example: "So me." });
+ok(st6.what_goes_here === "only the big moments" && st6.never.join("|") === "links|naming Acme" && st6.like_this === "So me." && AR2.fitCheck(st6, "at Acme today").length === 1, "…and saved answers read back as a setup the checks use");
+ok(/A new account says hello/.test(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")) && /"You choose\."/.test(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")), "AGENTS.md says when to write an intro and how 'you choose' works");
+
+// Studio with a stand-in agent: what it's asked, what it may use, and what lands in the folder
+const fakeBin = path.join(tmp, "bin");
+fs.mkdirSync(fakeBin, { recursive: true });
+fs.writeFileSync(path.join(fakeBin, "claude"), `#!/usr/bin/env node
+const fs = require("fs");
+const a = process.argv.slice(2);
+const prompt = a[a.indexOf("-p") + 1] || "";
+fs.appendFileSync(${JSON.stringify(path.join(tmp, "agent-log.jsonl"))}, JSON.stringify({ prompt, allowed: a.slice(a.indexOf("--allowedTools") + 1) }) + "\\n");
+if (/suggest the six answers/.test(prompt)) console.log('Here: [{"account_id": 21, "audience": "parents", "sound": "warm", "role": "own", "rhythm": "twice a week", "no_hashtags": true, "example": "", "why": "from your X posts"}]');
+else if (/call the posthuman set_up_account/.test(prompt)) console.log('[{"account_id": 21, "saved": true, "say": "Saved."}]');
+else if (/A new account says hello/.test(prompt)) { fs.writeFileSync("posts/2026-11-26-threads-intro.md", "---\\nstatus: draft\\naccounts: [Threads @shop]\\n---\\n\\n# Words\\n\\n## Everywhere\\nHi.\\n"); console.log("posts/2026-11-26-threads-intro.md\\nHi."); }
+`, { mode: 0o755 });
+fs.writeFileSync(path.join(dir, "brand/accounts.md"), AR2.writeAccounts([
+  { account_id: 21, account: "Threads @shop", setup: "not yet", past_posts: 0 },
+  { account_id: 23, account: "Pinterest Shop Boards", setup: "not yet", past_posts: 0 },
+]));
+const port2 = port + 1;
+const srv2 = spawn("node", ["tools/studio.mjs", "--port", String(port2), "--no-open"], { cwd: dir, env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH}` }, stdio: "pipe" });
+await new Promise((ok) => { srv2.stdout.on("data", (d) => String(d).includes("Studio for") && ok()); setTimeout(ok, 4000); });
+try {
+  const b2 = `http://127.0.0.1:${port2}`;
+  const tok = (await (await fetch(b2 + "/")).text()).match(/const TOKEN = "([\w-]+)"/)?.[1];
+  const h2 = { "X-Studio-Token": tok, "Content-Type": "application/json" };
+  const wait = async (id) => { for (let i = 0; i < 100; i++) { const j = await (await fetch(`${b2}/api/job/${id}`, { headers: h2 })).json(); if (j.state !== "running") return j; await new Promise((r) => setTimeout(r, 100)); } return {}; };
+  const log = () => fs.readFileSync(path.join(tmp, "agent-log.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  let s2 = await (await fetch(b2 + "/api/state", { headers: h2 })).json();
+  ok(s2.accounts.accounts.map((a) => a.intro).join("|") === "yes|skip", "studio: a brand-new account shows Write an intro; Pinterest says why not");
+
+  let j = await wait((await (await fetch(b2 + "/api/accounts/suggest", { method: "POST", headers: h2, body: JSON.stringify({ ids: [21] }) })).json()).job);
+  ok(j.state === "done" && j.suggestions?.[0]?.audience === "parents" && !("example" in j.suggestions[0]) && j.suggestions[0].why === "from your X posts", "you choose: suggestions come back for the page, and nothing is saved yet");
+  const allowedOnly = (x) => x.allowed.slice(0, x.allowed.indexOf("--disallowedTools") < 0 ? undefined : x.allowed.indexOf("--disallowedTools"));
+  ok(!/set_up_account|Write|Edit|Bash/.test(allowedOnly(log().at(-1)).join(" ")) && log().at(-1).allowed.includes("Write") && !/- who reads it/.test(fs.readFileSync(path.join(dir, "brand/accounts.md"), "utf8")), "…the suggesting agent can read but can't save or write anything");
+
+  j = await wait((await (await fetch(b2 + "/api/accounts/save", { method: "POST", headers: h2, body: JSON.stringify({ items: [{ ...j.suggestions[0], audience: "parents of 5 to 8 year olds" }] }) })).json()).job);
+  const af = fs.readFileSync(path.join(dir, "brand/accounts.md"), "utf8");
+  ok(j.state === "done" && j.saved?.[0] === 21 && af.includes("- who reads it: parents of 5 to 8 year olds") && af.includes("- never: hashtags") && af.includes("- posts so far: 0"), "…Save sends what the user saw (with their edit) and updates the local copy");
+  ok(log().at(-1).allowed.join(" ") === "mcp__posthuman__set_up_account --disallowedTools Bash Edit Write Read" && log().at(-1).prompt.includes('"audience":"parents of 5 to 8 year olds"'), "…and the saving agent may only call set_up_account, with exactly those answers");
+
+  j = await wait((await (await fetch(b2 + "/api/accounts/intro", { method: "POST", headers: h2, body: JSON.stringify({ account: "Threads @shop" }) })).json()).job);
+  s2 = await (await fetch(b2 + "/api/state", { headers: h2 })).json();
+  ok(j.state === "done" && j.file === "posts/2026-11-26-threads-intro.md" && s2.posts.some((p) => p.slug === "2026-11-26-threads-intro") && s2.accounts.accounts.find((a) => a.account_id === 21).intro === "", "intro: one draft lands on the Week, and the account stops asking for one");
+  ok(!log().at(-1).allowed.some((x) => /create_post|update_post|set_up_account/.test(x)) && /Do NOT schedule/.test(log().at(-1).prompt), "…and the intro agent can't schedule anything");
+  ok((await fetch(b2 + "/api/accounts/intro", { method: "POST", headers: h2, body: JSON.stringify({ account: "Nope" }) })).status === 400, "…an account that isn't there is refused");
+  // a post already in Posthuman: Save and send hands the change to the agent, which may only update that post
+  fs.writeFileSync(path.join(dir, "posts/2026-11-27-live.md"), "---\nstatus: scheduled\nposthuman_post_id: 77\nwhen: 2026-11-27 09:00\naccounts: [Threads @shop]\n---\n\n# Words\n\n## Everywhere\nHello there. What do you make?\n");
+  fs.writeFileSync(path.join(dir, "posts/2026-11-27-nolive.md"), "---\nstatus: scheduled\naccounts: [Threads @shop]\n---\n\n# Words\n\n## Everywhere\nHi. What's yours?\n");
+  const sj = await (await fetch(b2 + "/api/send/2026-11-27-live", { method: "POST", headers: h2 })).json();
+  const sjob = await wait(sj.job);
+  const sl = log().at(-1);
+  ok(sjob.state === "done" && /scheduled in Posthuman as post 77/.test(sl.prompt) && /never create or cancel/.test(sl.prompt) && sl.allowed.includes("mcp__posthuman__update_post") && !sl.allowed.some((x) => /create_post|cancel_post|mcp__posthuman$/.test(x)), "send: a scheduled post's change goes to the same post in Posthuman (update only, never a new one)");
+  ok((await fetch(b2 + "/api/send/2026-11-27-nolive", { method: "POST", headers: h2 })).status === 400, "…a post with no Posthuman number isn't sent");
+  for (const f of ["2026-11-27-live", "2026-11-27-nolive"]) fs.rmSync(path.join(dir, `posts/${f}.md`));
+  const page2 = await (await fetch(b2 + "/")).text();
+  ok(page2.includes("Save and send") && page2.includes("function platformsLine") && !page2.includes("gives: ${esc(p.gives)}</span>"), "studio page: cards name their platforms, and a scheduled post saves and sends");
+} finally {
+  srv2.kill();
+  await new Promise((r) => (srv2.exitCode !== null ? r() : srv2.once("exit", r)));
+}
+
+// ---------- 7a: Studio finds a free port ----------
+{
+  const net = await import("node:net");
+  const first = 49000 + Math.floor(Math.random() * 1000);
+  const blocker = net.createServer().listen(first, "127.0.0.1");
+  await new Promise((r) => blocker.once("listening", r));
+  const s3 = spawn("node", ["tools/studio.mjs", "--no-open"], { cwd: dir, env: { ...process.env, STUDIO_AGENT: "none", STUDIO_FIRST_PORT: String(first) }, stdio: "pipe" });
+  let out3 = "";
+  await new Promise((ok) => { s3.stdout.on("data", (d) => { out3 += d; if (out3.includes("Studio for")) ok(); }); setTimeout(ok, 4000); });
+  s3.kill();
+  ok(out3.includes(`127.0.0.1:${first + 1}/`) && out3.includes(`(${first} was busy)`), "studio: a busy port moves to the next free one, and says so");
+  const s4 = spawnSync("node", ["tools/studio.mjs", "--no-open", "--port", String(first)], { cwd: dir, encoding: "utf8", env: { ...process.env, STUDIO_AGENT: "none" }, timeout: 8000 });
+  ok(s4.status === 1 && /Port \d+ is busy\. Leave --port off/.test(s4.stderr), "…but --port asks for exactly that one, and says how to get a free one");
+  blocker.close();
+}
+
+// ---------- Studio says where it is ----------
+{
+  const first = 50000 + Math.floor(Math.random() * 1000);
+  const env = { ...process.env, STUDIO_AGENT: "none", STUDIO_FIRST_PORT: String(first) };
+  const where = () => spawnSync("node", ["tools/studio.mjs", "--where"], { cwd: dir, encoding: "utf8", env, timeout: 8000 });
+  ok(where().status === 1 && /isn't open\. Start it: node tools\/studio\.mjs/.test(where().stdout), "studio --where: says it isn't open, and how to start it");
+  const s5 = spawn("node", ["tools/studio.mjs", "--no-open"], { cwd: dir, env, stdio: "pipe" });
+  let out5 = "";
+  await new Promise((r) => { s5.stdout.on("data", (d) => { out5 += d; if (out5.includes("Studio for")) r(); }); setTimeout(r, 4000); });
+  const url5 = `http://127.0.0.1:${first}/`;
+  const w = where();
+  ok(w.status === 0 && w.stdout.includes(`Studio is open: ${url5}`) && JSON.parse(fs.readFileSync(path.join(dir, ".studio"), "utf8")).url === url5, "studio --where: gives the address of this folder's Studio while it runs");
+  const again = spawnSync("node", ["tools/studio.mjs", "--no-open"], { cwd: dir, encoding: "utf8", env, timeout: 8000 });
+  ok(again.status === 0 && again.stdout.includes(`already open: ${url5}`), "studio: starting it again points to the one that's open, not a second one");
+  ok(fs.readFileSync(path.join(dir, ".gitignore"), "utf8").includes(".studio"), "…and .studio stays out of git");
+  s5.kill();
+  await new Promise((r) => (s5.exitCode !== null ? r() : s5.once("exit", r)));
+  ok(!fs.existsSync(path.join(dir, ".studio")) && where().status === 1, "…and when it stops, it's gone");
+  fs.writeFileSync(path.join(dir, ".studio"), JSON.stringify({ url: url5, pid: 1 }));
+  ok(where().status === 1, "…a leftover .studio from a crash doesn't count");
+  fs.rmSync(path.join(dir, ".studio"));
+  ok(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8").includes("**Give them the link.**"), "AGENTS.md: the agent gives the Studio link when drafts are ready, and offers to open it");
+}
+
+// ---------- 7b: tools/vertical.mjs ----------
+{
+  const VT = await import(path.join(dir, "tools/vertical.mjs"));
+  const va = VT.verticalArgs("library/a.mp4", "library/a-vertical.mp4");
+  ok(va.join(" ").includes("scale=1080:1920:force_original_aspect_ratio=increase") && va.join(" ").includes("boxblur") && va.includes("0:a?") && VT.verticalArgs("p.png", "p-4x5.png", { size: "4:5", fit: "crop" }).join(" ").includes("crop=1080:1350") && VT.verticalArgs("p.png", "o.png").includes("-frames:v"), "vertical: blur fill by default, crop when asked, pictures get one frame, sound kept when there is some");
+  let vr = run("node", ["tools/vertical.mjs", "library/test.png", "--size", "16:9"], dir);
+  ok(vr.status !== 0 && /--size is one of 9:16, 4:5, 1:1/.test(vr.stderr), "…a size it doesn't know is said plainly");
+  if (haveFf) {
+    run("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=24:duration=2", "-f", "lavfi", "-i", "sine=frequency=330:duration=2", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "library/wide.mp4"], dir);
+    vr = run("node", ["tools/vertical.mjs", "library/wide.mp4"], dir);
+    const dims = run("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0", "library/wide-vertical.mp4"], dir).stdout;
+    ok(vr.status === 0 && dims.includes("video,1080,1920") && dims.includes("audio") && fs.readFileSync(path.join(dir, "library/INDEX.md"), "utf8").includes("| wide-vertical.mp4 |"), "…a real 16:9 clip comes out 1080x1920 with its sound, listed in library/INDEX.md");
+    vr = run("node", ["tools/vertical.mjs", "library/test.png", "--size", "4:5"], dir);
+    ok(vr.status === 0 && run("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", "library/test-4x5.png"], dir).stdout.trim() === "1080,1350", "…and a photo comes out 4:5 for Instagram");
+  } else console.log("skip vertical run (no ffmpeg here)");
+}
+
+// ---------- 7c: more than one brand ----------
+{
+  const BR = await import(path.join(dir, "tools/brands.mjs"));
+  ok(BR.accountIdsIn("## Accounts on Posthuman\n- Instagram @kt (10): reels\n- Threads (account 15)\n<!-- fill: (99) -->\n## Goals\n- (3)").join() === "10,15", "brands: an about.md's accounts are read by their ids (not from comments or other sections)");
+  let r7 = run("node", ["tools/brands.mjs", "add", "Kitchen Table", "--accounts", "10,15"], dir);
+  ok(r7.status === 0 && fs.existsSync(path.join(dir, "brands/kitchen-table/about.md")) && fs.readFileSync(path.join(dir, "brands/kitchen-table/about.md"), "utf8").includes("# About Kitchen Table") && fs.readFileSync(path.join(dir, "brands/kitchen-table/about.md"), "utf8").includes("- (10)"), "brands add: makes brands/<name>/ with its about.md (its accounts listed) and voice.md");
+  ok(run("node", ["tools/brands.mjs", "add", "Kitchen Table"], dir).status !== 0, "…and won't make the same one twice");
+  const bl = BR.brandsOf(dir);
+  ok(bl.length === 2 && bl[0].slug === "" && bl[1].slug === "kitchen-table" && bl[1].name === "Kitchen Table" && bl[1].ids.join() === "10,15", "brands: the main one first, then each folder in brands/");
+  const acc = [{ account: "Instagram @kt", account_id: 10 }, { account: "Threads @kt", account_id: 15 }, { account: "X @me", account_id: 6 }];
+  ok(BR.brandOfPost({ brand: "kitchen-table" }, bl).slug === "kitchen-table" && BR.brandOfPost({ brand: "Kitchen Table" }, bl).slug === "kitchen-table" && BR.brandOfPost({ accounts: "[Instagram @kt, Threads @kt]" }, bl, acc).slug === "kitchen-table" && BR.brandOfPost({ accounts: "[Instagram @kt, X @me]" }, bl, acc).slug === "" && BR.brandOfPost({ brand: "gone" }, bl).slug === "", "a post's brand: its brand: line, else the brand that lists all its accounts, else the main one");
+  ok(BR.brandFile(bl[1], "voice.md", dir).endsWith("brands/kitchen-table/voice.md") && BR.brandFile(bl[1], "sources.md", dir).endsWith(path.join("brand", "sources.md")), "…and a brand's own file, or the main brand's when it has none");
+
+  // each post is judged by its own brand's voice
+  fs.writeFileSync(path.join(dir, "brand/voice.md"), "## Voice\n- End with a real question.\n");
+  fs.writeFileSync(path.join(dir, "brands/kitchen-table/voice.md"), "## Never do\n- Don't say \"print tonight\".\n");
+  const post7 = (brand, words) => `---\nstatus: draft\nbrand: ${brand}\naccounts: [Instagram @kt]\n---\n\n# Words\n\n## Everywhere\n${words}\n\n## Per account (only where it differs)\n(none)\n`;
+  fs.writeFileSync(path.join(dir, "posts/2026-11-28-kt.md"), post7("kitchen-table", "101 pages. Print tonight."));
+  fs.writeFileSync(path.join(dir, "posts/2026-11-28-me.md"), post7("", "101 pages. Print tonight."));
+  r7 = run("node", ["tools/humanize.mjs", "posts/2026-11-28-kt.md"], dir);
+  const r7b = run("node", ["tools/humanize.mjs", "posts/2026-11-28-me.md"], dir);
+  fs.writeFileSync(path.join(dir, "posts/2026-11-28-pin.md"), "---\nstatus: draft\naccounts: [Pinterest Shop, Threads @me]\n---\n\n# Words\n\n## Everywhere\nWhat grade are they in?\n\n## Per account (only where it differs)\n- Pinterest Shop: Free grade 3 reading worksheet.\n");
+  const rpin = run("node", ["tools/humanize.mjs", "posts/2026-11-28-pin.md"], dir);
+  ok(rpin.status === 0, "humanize: a Pinterest pin isn't asked to end on a question (people find pins by search)");
+  fs.rmSync(path.join(dir, "posts/2026-11-28-pin.md"));
+  ok(/your never-do: "print tonight"/.test(r7.stdout) && !/no ask at the end/.test(r7.stdout) && /no ask at the end/.test(r7b.stdout) && !/print tonight/.test(r7b.stdout), "humanize: a Kitchen Table post is judged by Kitchen Table's voice, a main-brand post by the main one");
+
+  const port7 = 50500 + Math.floor(Math.random() * 1000);
+  const s7 = spawn("node", ["tools/studio.mjs", "--port", String(port7), "--no-open"], { cwd: dir, env: { ...process.env, STUDIO_AGENT: "none" }, stdio: "pipe" });
+  await new Promise((ok) => { s7.stdout.on("data", (d) => String(d).includes("Studio for") && ok()); setTimeout(ok, 4000); });
+  try {
+    const b7 = `http://127.0.0.1:${port7}`;
+    const tok7 = (await (await fetch(b7 + "/")).text()).match(/const TOKEN = "([\w-]+)"/)?.[1];
+    const h7 = { "X-Studio-Token": tok7, "Content-Type": "application/json" };
+    let s = await (await fetch(b7 + "/api/state", { headers: h7 })).json();
+    const kt = s.posts.find((p) => p.slug === "2026-11-28-kt"), me = s.posts.find((p) => p.slug === "2026-11-28-me");
+    ok(s.brands.map((b) => b.name).join("|").endsWith("|Kitchen Table") && s.voices["kitchen-table"].banned.includes("print tonight") && "kitchen-table" in s.topicsBy, "studio: the page gets every brand, with its own voice rules and topics");
+    ok(kt.brand === "kitchen-table" && kt.tells.some((x) => x.tell === "your never-do") && me.brand === "" && me.tells.some((x) => x.tell === "no ask at the end"), "…and each card is judged by its own brand");
+    const rr = await fetch(b7 + "/api/post/2026-11-28-me", { method: "PUT", headers: h7, body: JSON.stringify({ brand: "kitchen-table" }) });
+    ok((await rr.json()).post.brand === "kitchen-table" && fs.readFileSync(path.join(dir, "posts/2026-11-28-me.md"), "utf8").includes("brand: kitchen-table"), "…moving a post to another brand saves its brand: line");
+  } finally {
+    s7.kill();
+  }
+  for (const f of ["posts/2026-11-28-kt.md", "posts/2026-11-28-me.md"]) fs.rmSync(path.join(dir, f));
+  fs.rmSync(path.join(dir, "brands"), { recursive: true });
+  fs.copyFileSync(path.join(path.resolve("template"), "brand/voice.md"), path.join(dir, "brand/voice.md"));
+  ok(/## More than one brand/.test(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")) && fs.readFileSync(path.join(dir, "posts/_template.md"), "utf8").includes("brand:"), "AGENTS.md and the post template say how brands work");
+}
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(bad ? `\n${bad} failed` : "\nall passed");

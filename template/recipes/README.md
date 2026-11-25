@@ -9,5 +9,6 @@ page (fal.ai/models → the model → API) and update the recipe.
 - [photo-to-video.md](photo-to-video.md): one of your photos becomes a 5-second clip for TikTok and Reels (fal)
 - [voiceover.md](voiceover.md): a voiceover on your own clip (ElevenLabs + ffmpeg)
 - [empty-days.md](empty-days.md): an image for each empty day this week, saved as drafts (fal)
+- `node tools/vertical.mjs library/clip.mp4`: a wide clip or photo made to fit Reels, TikTok and Shorts (9:16) or an Instagram picture (`--size 4:5`), the whole picture kept over a blurred copy of itself (free, ffmpeg)
 
 Write your own: copy one, keep the same parts (Needs · Costs · Steps · Watch out), and add it to this list.

@@ -10,7 +10,7 @@ and tidy around them, never drop or reword them.
 <!-- fill: "no hashtags", "no 'game-changer'", "never mention prices" -->
 
 ## Words we use
-<!-- fill: names, spellings, sign-offs: "Kitchen Table, never KT", "sign off as Wil" -->
+<!-- fill: names, spellings, sign-offs: "Kitchen Table, never KT", "sign off as Sam" -->
 
 ## Examples we love
 <!-- fill: paste two or three real posts that sound right -->

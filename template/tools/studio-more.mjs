@@ -194,8 +194,9 @@ export function draftWeek(week) {
   const r = rawOf(week);
   if (!r.shots.length && !r.numbers.length && !r.happened.length) throw new Error("Add at least one real thing first.");
   const prompt =
-    `Follow AGENTS.md and recipes/weekly-batch.md for the week starting ${week} (Sunday), steps 1 to 5 only: draft, check, humanize. ` +
-    `The user's raw material for the week is raw/${week}.md: draft from it first, then from ideas/inbox.md. Every post names gives: and payload:. ` +
+    `Follow AGENTS.md and recipes/weekly-batch.md for the week starting ${week} (Sunday), steps 1, 2, 4 and 5 only: draft, check, humanize. ` +
+    `The user's raw material for the week is raw/${week}.md, and its lines are their pick for the week (step 3): draft one post for each of their lines and nothing else, never from ideas you chose yourself or from ideas/inbox.md. ` +
+    `Each line is the angle: keep what it's about and how it says it should come across. When a line doesn't say how it should come across, write one take as the words and a second under # Notes as "CONFIRM the angle. Other take: …", so Studio shows it needs them. Every post names gives: and payload:. More than one brand here (brands/)? Each line is for one brand: write it in that brand's about.md and voice.md and put its brand: line on the post. ` +
     `Building posts carry the screenshot from the raw file when there is one. Write each draft as its own file in posts/ (status: draft) for a day in that week, ` +
     `skipping days that already have a post. Do NOT schedule anything and do not change posts that aren't drafts. Use Posthuman's briefing and past_posts if connected (read only). ` +
     `At the end, list the drafts you made (file, day, what it gives) in a few lines.`;

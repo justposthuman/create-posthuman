@@ -46,11 +46,13 @@ AGENTS.md       how your agent works here (CLAUDE.md points to it)
 brand/          about.md (what it is, who it's for, your goals) · past-posts.md (your posts, looked at one by one)
                 · voice.md (how it sounds, never do, what worked)
                 accounts.md (each account's setup, copied from Posthuman) · sources.md (where your stuff is)
+brands/         only if you run more than one brand here: <name>/about.md + voice.md for each extra one
 ideas/          inbox.md, one line per idea; bigger ones get their own file
 posts/          one file per post: the words per account, when, and how it did
 library/        pictures, clips and audio, listed in INDEX.md
 recipes/        step-by-step: photo → video, voiceover on your clip, images for empty days
-tools/          studio.mjs (the week in your browser) + small scripts the recipes use (Node 18+, nothing to install)
+tools/          studio.mjs (the week in your browser) + small scripts the recipes use (Node 18+, nothing to install):
+                vertical.mjs (a wide clip or photo made to fit Reels, TikTok, Shorts) · brands.mjs (more than one brand)
 ```
 
 Everything is a plain text file. Read it, change it, and keep it in git if you like. Lines you write yourself in

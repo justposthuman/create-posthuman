@@ -8,17 +8,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { listOf, parsePost } from "./post-rules.mjs";
 import { substance } from "./substance-rules.mjs";
 export { GIVES, substance } from "./substance-rules.mjs";
 
 /** gives / payload / media and the main words from a post file. */
 export function readPost(file) {
-  const s = fs.readFileSync(file, "utf8").replace(/\r/g, "");
-  const fm = s.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-  const field = (k) => (fm.match(new RegExp(`^${k}:\\s?(.*)$`, "m"))?.[1] ?? "").replace(/\s+#.*$/, "").trim();
-  const media = field("media").replace(/^\[|\]$/g, "").split(",").map((x) => x.trim()).filter(Boolean);
-  const words = s.match(/## Everywhere\n([\s\S]*?)(?=\n## |\n# |$)/)?.[1].trim() ?? "";
-  return { gives: field("gives"), payload: field("payload"), media, words };
+  const p = parsePost(fs.readFileSync(file, "utf8"));
+  return { gives: p.front.gives ?? "", payload: p.front.payload ?? "", media: listOf(p.front.media), words: p.everywhere };
 }
 
 const HERE = fileURLToPath(import.meta.url);

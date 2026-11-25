@@ -125,6 +125,8 @@ main { padding: 26px 28px 80px; min-width: 0; }
 .card .top { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--soft); margin-bottom: 4px; }
 .card .txt { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .card .foot { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.card .plats { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.card .topic { font-size: 11px; color: var(--soft); }
 .card .flag { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 999px; font-size: 11px; padding: 1px 7px; }
 .thumbs { display: flex; gap: 4px; margin-top: 6px; }
 .thumbs img, .thumbs video { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
@@ -270,10 +272,10 @@ const PLATFORMS = [
   { re: /instagram/i, name: "Instagram", limit: 2200 },
   { re: /tiktok/i, name: "TikTok", limit: 2200 },
   { re: /linkedin/i, name: "LinkedIn", limit: 3000 },
-  { re: /pinterest/i, name: "Pinterest", limit: 500 },
+  { re: /pinterest/i, name: "Pinterest", limit: 800 },
   { re: /telegram/i, name: "Telegram", limit: 4096 },
   { re: /discord/i, name: "Discord", limit: 2000 },
-  { re: /nostr/i, name: "Nostr", limit: 0 },
+  { re: /nostr/i, name: "Nostr", limit: 10000 },
   { re: /facebook/i, name: "Facebook", limit: 63206 },
   { re: /youtube/i, name: "YouTube", limit: 5000 },
 ];
@@ -287,9 +289,16 @@ let humanCheck = null; // the same check as tools/humanize.mjs, loaded from the 
 let substanceCheck = null, GIVES_LIST = { story: "", tip: "", number: "", show: "", opinion: "" };
 import(`/substance-rules.mjs?t=${TOKEN}`).then((m) => { substanceCheck = m.substance; GIVES_LIST = m.GIVES; if (open) drawSheet(); }).catch(() => {});
 import(`/humanize-rules.mjs?t=${TOKEN}`).then((m) => { humanCheck = m.check; if (open) drawTells(); }).catch(() => {});
+// the same counting as tools/humanize.mjs: X counts a link as 23 and an emoji as 2, Bluesky counts emoji as one
+let lengthsFor = null;
+import(`/length-rules.mjs?t=${TOKEN}`).then((m) => { lengthsFor = m.lengthsFor; if (open) drawCounts(); }).catch(() => {});
 let fitCheck = null, setupFor = null;
 import(`/account-rules.mjs?t=${TOKEN}`).then((m) => { fitCheck = m.fitCheck; setupFor = m.setupFor; if (open) drawTells(); }).catch(() => {});
 let weekStart = startOfWeek(new Date());
+// which brand the Week shows when there's more than one (brands/): "*" = all
+let BRAND_PICK = (() => { try { return localStorage.getItem("studio-brand") || "*"; } catch { return "*"; } })();
+const brandName = (slug) => (S.brands || []).find((b) => b.slug === (slug || ""))?.name || "";
+const topicsFor = (slug) => ((S.brands || []).length > 1 ? S.topicsBy?.[slug || ""] || [] : S.topics || []);
 let open = null; // the post being edited: { slug, draft fields, dirty }
 
 function startOfWeek(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - x.getDay()); return x; }
@@ -306,11 +315,16 @@ async function load(redraw = true) {
 function render() {
   const days = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
   $("#weeklabel").textContent = ymd(days[0]) === ymd(startOfWeek(new Date())) ? "This week" : `Week of ${fmtDay(days[0])}`;
-  const inWeek = S.posts.filter((p) => p.date && p.date >= ymd(days[0]) && p.date <= ymd(days[6]));
+  // more than one brand (brands/): show one, or all
+  const many = (S.brands || []).length > 1;
+  if (!many || (BRAND_PICK !== "*" && !S.brands.some((b) => b.slug === BRAND_PICK))) BRAND_PICK = "*"; // a brand that's gone: show all
+  const mine = (p) => !many || BRAND_PICK === "*" || (p.brand || "") === BRAND_PICK;
+  const inWeek = S.posts.filter((p) => p.date && p.date >= ymd(days[0]) && p.date <= ymd(days[6]) && mine(p));
   const count = (st) => inWeek.filter((p) => p.status === st).length;
-  $("#counts").innerHTML = ["draft", "approved", "scheduled", "posted"].map((st) => count(st) ? `<span class="pill ${st}">${count(st)} ${st}</span>` : "").join("");
-  // the week's mix, against the topics in brand/about.md ("Building 3/7")
-  const T = S.topics || [];
+  $("#counts").innerHTML = (many ? `<select id="brandPick" aria-label="Brand"><option value="*">All brands</option>${S.brands.map((b) => `<option value="${esc(b.slug)}" ${BRAND_PICK === b.slug ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>` : "") + ["draft", "approved", "scheduled", "posted"].map((st) => count(st) ? `<span class="pill ${st}">${count(st)} ${st}</span>` : "").join("");
+  $("#brandPick") && ($("#brandPick").onchange = (e) => { BRAND_PICK = e.target.value; try { localStorage.setItem("studio-brand", BRAND_PICK); } catch {} render(); });
+  // the week's mix, against the topics in that brand's about.md ("Building 3/7"); all brands at once: no mix
+  const T = many ? (BRAND_PICK === "*" ? [] : S.topicsBy?.[BRAND_PICK] || []) : S.topics || [];
   const live = inWeek.filter((p) => p.status !== "dropped");
   const tOf = (p) => { const v = (p.topic || "").toLowerCase(); return v && (T.find((t) => t.name.toLowerCase() === v) || T.find((t) => t.name.toLowerCase().startsWith(v) || v.startsWith(t.name.toLowerCase()))); };
   $("#mix").innerHTML = T.length && live.length ? T.map((t) => { const n = live.filter((p) => tOf(p) === t).length; return `<span class="pill ${t.per_week && n < t.per_week ? "" : "approved"}" title="${esc(t.name)}${t.per_week ? `: you want about ${t.per_week} a week` : ""}">${esc(t.name.split(" ").slice(0, 3).join(" "))} ${n}${t.per_week ? `/${t.per_week}` : ""}</span>`; }).join("") + (live.some((p) => !tOf(p)) ? `<span class="pill" title="Posts with no topic">no topic ${live.filter((p) => !tOf(p)).length}</span>` : "") : "";
@@ -324,7 +338,7 @@ function render() {
     const ps = inWeek.filter((p) => p.date === ymd(d)).sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
     return `<div class="day${ymd(d) === today ? " today" : ""}"><h2>${esc(fmtDay(d))}</h2>${ps.map(card).join("") || `<div class="empty">Nothing yet</div>`}</div>`;
   }).join("");
-  const undated = S.posts.filter((p) => !p.date);
+  const undated = S.posts.filter((p) => !p.date && mine(p));
   $("#undated").innerHTML = undated.length ? `<h2>No date</h2><div class="list">${undated.map(card).join("")}</div>` : "";
   document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openPost(c.dataset.slug)));
 }
@@ -334,11 +348,17 @@ function card(p) {
   const n = parts(p.everywhere).length;
   const thumbs = p.media.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" muted preload="metadata"></video>` : /\.(mp3|wav|m4a)$/i.test(f) ? "" : `<img src="${media(f)}" alt="">`).join("");
   return `<div class="card ${esc(p.status)}" data-slug="${esc(p.slug)}" tabindex="0">
-    <div class="top"><span>${esc(p.time || "")}${p.time && p.kind ? " · " : ""}${esc(p.kind)}</span></div>
+    <div class="top"><span>${esc(p.time || "")}${p.time && p.kind ? " · " : ""}${esc(p.kind)}</span>${(S.brands || []).length > 1 && BRAND_PICK === "*" ? `<span class="pill">${esc(brandName(p.brand))}</span>` : ""}</div>
+    ${p.accounts?.length ? `<div class="plats">${esc(platformsLine(p.accounts))}</div>` : ""}
     <div class="txt">${esc(first)}</div>
     ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}
-    <div class="foot"><span class="pill ${esc(p.status)}">${esc(p.status)}</span>${n > 1 ? `<span class="pill">${n} parts</span>` : ""}${p.flagged ? `<span class="flag">needs you</span>` : ""}${p.topic ? `<span class="pill">${esc(p.topic)}</span>` : ""}${p.gives ? `<span class="pill gives" title="${esc(p.payload)}">gives: ${esc(p.gives)}</span>` : ""}${p.substance?.length ? `<span class="flag" title="${esc(p.substance.map((x) => x.issue).join(", "))}">${p.gives ? "thin" : "gives nothing"}</span>` : ""}${p.tells?.length ? `<span class="pill tells" title="${esc(p.tells.map((t) => t.tell).join(", "))}">${p.tells.length} AI tell${p.tells.length === 1 ? "" : "s"}</span>` : ""}${p.fits?.length ? `<span class="flag" title="${esc(p.fits.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">breaks a no</span>` : ""}${p.first_draft ? `<span class="pill" title="You edited it; your agent learns from the change">edited</span>` : ""}</div>
+    <div class="foot"><span class="pill ${esc(p.status)}">${esc(p.status)}</span>${n > 1 ? `<span class="pill">${n} parts</span>` : ""}${p.flagged ? `<span class="flag">needs you</span>` : ""}${p.substance?.length ? `<span class="flag" title="${esc(p.substance.map((x) => x.issue).join(", "))}">${p.gives ? "thin" : "gives nothing"}</span>` : ""}${p.tells?.length ? `<span class="pill tells" title="${esc(p.tells.map((t) => t.tell).join(", "))}">${p.tells.length} AI tell${p.tells.length === 1 ? "" : "s"}</span>` : ""}${p.fits?.length ? `<span class="flag" title="${esc(p.fits.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">breaks a no</span>` : ""}${p.long?.length ? `<span class="flag" title="${esc(p.long.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">too long</span>` : ""}${p.first_draft ? `<span class="pill" title="You edited it; your agent learns from the change">edited</span>` : ""}${p.topic ? `<span class="topic" title="${esc(p.gives ? `gives: ${p.gives}. ${p.payload || ""}` : "")}">${esc(p.topic)}</span>` : ""}</div>
   </div>`;
+}
+/** "X · Bluesky · Threads", or "X · Bluesky +3" when there are many. */
+function platformsLine(accounts) {
+  const names = [...new Set(accounts.map((a) => platformOf(a).name))];
+  return names.length > 3 ? `${names.slice(0, 2).join(" · ")} +${names.length - 2}` : names.join(" · ");
 }
 
 // ---------- the post sheet ----------
@@ -346,7 +366,7 @@ function card(p) {
 function openPost(slug) {
   const p = S.posts.find((x) => x.slug === slug);
   if (!p) return;
-  open = { slug, base: p, topic: p.topic || "", gives: p.gives || "", payload: p.payload || "", everywhere: p.everywhere, per: p.per.map((x) => ({ ...x })), media: [...p.media], made_with_ai: p.made_with_ai, status: p.status, tab: p.accounts[0] || "", rewrite: null, dirty: false };
+  open = { slug, base: p, brand: p.brand || "", topic: p.topic || "", gives: p.gives || "", payload: p.payload || "", everywhere: p.everywhere, per: p.per.map((x) => ({ ...x })), media: [...p.media], made_with_ai: p.made_with_ai, status: p.status, tab: p.accounts[0] || "", rewrite: null, dirty: false };
   $("#scrim").classList.add("open");
   $("#sheet").classList.add("open");
   drawSheet();
@@ -370,22 +390,24 @@ function drawSheet() {
   const p = open.base;
   const d = p.date ? new Date(`${p.date}T12:00:00`) : null;
   const accts = p.accounts.length ? p.accounts : ["Everywhere"];
+  const live = isLive(p);
   $("#sheet").innerHTML = `
     <div class="bar">
       <div class="title">${d ? esc(fmtDay(d)) : "No date"}${p.time ? ` · ${esc(p.time)}` : ""}${p.kind ? ` <span class="muted">· ${esc(p.kind)}</span>` : ""}</div>
-      <div class="row status-row">
+      ${live || p.status === "posted" ? `<span class="pill ${esc(p.status)}">${p.status === "posted" ? "Posted" : "Scheduled in Posthuman"}</span>` : `<div class="row status-row">
         <button class="ok ${open.status === "approved" ? "on" : ""}" data-st="approved">Approve</button>
         <button class="${open.status === "draft" ? "on" : ""}" data-st="draft">Draft</button>
         <button class="${open.status === "dropped" ? "on" : ""}" data-st="dropped">Drop</button>
-      </div>
-      <button class="primary" id="save" ${open.dirty ? "" : "disabled"}>Save</button>
+      </div>`}
+      <button class="primary" id="save" ${open.dirty ? "" : "disabled"}>${live && S.agent ? "Save and send" : "Save"}</button>
       <button class="ghost" id="close" aria-label="Close">✕</button>
     </div>
     <div class="body">
       <div>
         ${p.notes ? `<div class="notes">${esc(p.notes)}</div>` : ""}
-        ${p.status === "scheduled" || p.status === "posted" ? `<div class="notes">This one is ${esc(p.status)} in Posthuman${p.post_id ? ` (post ${esc(p.post_id)})` : ""}. Changes here don't reach it: ask your agent to update_post, or edit it in Posthuman.</div>` : ""}
-        ${(S.topics || []).length ? `<h3>What it's about</h3><div class="tabs" id="topics">${S.topics.map((t) => `<button class="${open.topic.toLowerCase() === t.name.toLowerCase() ? "on" : ""}" data-t="${esc(t.name)}">${esc(t.name)}</button>`).join("")}</div>` : ""}
+        ${p.status === "posted" ? `<div class="notes">This one already went out. Changes here only change your copy.</div>` : live ? `<div class="notes">Scheduled in Posthuman (post ${esc(p.post_id)}). ${S.agent ? "<b>Save and send</b> changes it there too: your agent updates the same post, it doesn't make a new one." : "Save keeps your change here. To change it in Posthuman, ask your agent to update it, or edit it in Posthuman."}</div>` : p.status === "scheduled" ? `<div class="notes">Marked scheduled, but there's no Posthuman post number in the file, so Studio can't send changes. Ask your agent to check it.</div>` : ""}
+        ${(S.brands || []).length > 1 ? `<h3>Brand</h3><select id="brandOf">${S.brands.map((b) => `<option value="${esc(b.slug)}" ${open.brand === b.slug ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>` : ""}
+        ${topicsFor(open.brand).length ? `<h3>What it's about</h3><div class="tabs" id="topics">${topicsFor(open.brand).map((t) => `<button class="${open.topic.toLowerCase() === t.name.toLowerCase() ? "on" : ""}" data-t="${esc(t.name)}">${esc(t.name)}</button>`).join("")}</div>` : ""}
         <h3>What it gives the reader</h3>
         <div class="tabs" id="gives">${Object.keys(GIVES_LIST).map((g) => `<button class="${open.gives === g ? "on" : ""}" data-g="${g}" title="${esc(GIVES_LIST[g])}">${g}</button>`).join("")}</div>
         <input type="text" id="payload" value="${esc(open.payload)}" placeholder="The one real thing, in a line: the true detail, the tip, the number, the reason">
@@ -437,6 +459,7 @@ function drawSheet() {
   $("#save").onclick = save;
   $("#sheet").querySelectorAll("[data-st]").forEach((b) => (b.onclick = async () => { open.status = b.dataset.st; open.dirty = true; await save(); }));
   $("#words").oninput = (e) => { open.everywhere = e.target.value; dirty(); drawCounts(); drawPreview(); drawTells(); drawSubstance(); };
+  $("#brandOf") && ($("#brandOf").onchange = (e) => { open.brand = e.target.value; dirty(); drawSheet(); });
   $("#topics")?.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => { open.topic = open.topic === b.dataset.t ? "" : b.dataset.t; dirty(); drawSheet(); }));
   $("#gives").querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => { open.gives = open.gives === b.dataset.g ? "" : b.dataset.g; dirty(); drawSheet(); }));
   $("#payload").oninput = (e) => { open.payload = e.target.value; dirty(); drawSubstance(); };
@@ -461,7 +484,7 @@ function drawSubstance() {
 function drawTells() {
   const el = $("#tells");
   if (!el) return;
-  const t = humanCheck ? humanCheck(open.everywhere) : open.base.tells || [];
+  const t = humanCheck ? humanCheck(open.everywhere, { voice: S.voices?.[open.brand] ?? S.voice }) : open.base.tells || [];
   el.innerHTML = t.length
     ? `<ul class="tell-list">${t.map((x) => `<li><b>${esc(x.tell)}</b>: ${x.found.map((f) => `<mark>${esc(f)}</mark>`).join(" ")} <span class="muted">${esc(x.fix)}</span></li>`).join("")}</ul>`
     : `<div class="small muted">Nothing that sounds like AI. Still read it out loud once.</div>`;
@@ -486,7 +509,7 @@ function dirty() { open.dirty = true; const s = $("#save"); if (s) s.disabled = 
 function drawPer() {
   $("#per").innerHTML = open.per.length ? open.per.map((x, i) => `
     <div style="margin-bottom:8px"><div class="row small" style="justify-content:space-between"><b>${esc(x.account)}</b><button class="ghost small" data-rm="${i}">Remove</button></div>
-    <textarea rows="2" data-per="${i}">${esc(x.words)}</textarea></div>`).join("") : `<div class="small muted">None: every account gets the main words.</div>`;
+    <textarea rows="${Math.min(12, Math.max(2, x.words.split("\n").length + 1))}" data-per="${i}">${esc(x.words)}</textarea></div>`).join("") : `<div class="small muted">None: every account gets the main words.</div>`;
   $("#per").querySelectorAll("[data-per]").forEach((t) => (t.oninput = () => { open.per[t.dataset.per].words = t.value; dirty(); drawCounts(); drawPreview(); drawFits(); }));
   $("#per").querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { open.per.splice(Number(b.dataset.rm), 1); dirty(); drawSheet(); }));
 }
@@ -494,6 +517,13 @@ function drawCounts() {
   const accts = open.base.accounts;
   $("#counts-line").innerHTML = accts.map((a) => {
     const pf = platformOf(a);
+    if (lengthsFor) {
+      const l = lengthsFor(a, resolved(a), { media: open.media.length });
+      if (l.length) {
+        const worst = l.reduce((m, x) => (x.length - x.limit > m.length - m.limit ? x : m));
+        return `<span class="count ${worst.length > worst.limit ? "over" : ""}" title="${esc(a)}${worst.part ? `: part ${worst.part}` : ""}">${esc(pf.name)} ${worst.length}/${worst.limit}</span>`;
+      }
+    }
     if (!pf.limit) return `<span class="count">${esc(pf.name)}</span>`;
     const longest = Math.max(...parts(resolved(a)).map(glyphs));
     return `<span class="count ${longest > pf.limit ? "over" : ""}" title="${esc(a)}">${esc(pf.name)} ${longest}/${pf.limit}</span>`;
@@ -502,7 +532,7 @@ function drawCounts() {
 function drawPreview() {
   const a = open.tab || "Everywhere";
   const pf = platformOf(a);
-  const name = S.brand;
+  const name = (open?.brand && brandName(open.brand)) || S.brand;
   const ps = parts(resolved(a));
   const m = open.media.filter((f) => !/\.(mp3|wav|m4a)$/i.test(f));
   $("#preview").innerHTML = ps.map((t, i) => `
@@ -539,11 +569,15 @@ const tile = (x) => `<div class="tile ${x.type === "audio" ? "audio" : ""}" data
 async function save() {
   if (!open) return;
   try {
-    const r = await api("PUT", `/api/post/${encodeURIComponent(open.slug)}`, { everywhere: open.everywhere, topic: open.topic, gives: open.gives, payload: open.payload, per: open.per, media: open.media, made_with_ai: open.made_with_ai, status: open.status, mtime: open.base.mtime });
+    const r = await api("PUT", `/api/post/${encodeURIComponent(open.slug)}`, { everywhere: open.everywhere, brand: open.brand, topic: open.topic, gives: open.gives, payload: open.payload, per: open.per, media: open.media, made_with_ai: open.made_with_ai, status: open.status, mtime: open.base.mtime });
     const i = S.posts.findIndex((x) => x.slug === open.slug);
     S.posts[i] = r.post;
     open.base = r.post; open.dirty = false;
-    render(); drawSheet(); toast(open.status === "approved" ? "Approved" : "Saved");
+    render(); drawSheet();
+    if (isLive(r.post) && S.agent) {
+      const { job } = await api("POST", `/api/send/${encodeURIComponent(open.slug)}`);
+      showJob(job, "Sending your change to Posthuman…");
+    } else toast(open.status === "approved" ? "Approved" : "Saved");
   } catch (e) {
     alert(e.message);
     if (e.status === 409) { await load(); openPost(open.slug); }
@@ -575,6 +609,24 @@ async function rewrite(humanize = false) {
   $("#again").onclick = () => rewrite(humanize);
 }
 
+const isLive = (p) => p.status === "scheduled" && !!p.post_id;
+
+/** The job box at the bottom: what the agent is doing, live, until it's done. */
+function showJob(job, title) {
+  const box = $("#job");
+  box.classList.add("open");
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><b><span class="spin"></span> ${esc(title)}</b><button class="ghost" id="jobClose">✕</button></div><pre id="jobOut"></pre>`;
+  $("#jobClose").onclick = () => box.classList.remove("open");
+  const poll = async () => {
+    const j = await api("GET", `/api/job/${job}`).catch(() => ({ state: "failed", out: "lost it" }));
+    const o = $("#jobOut"); if (o) { o.textContent = (j.out + (j.state === "failed" && j.err ? `\n${j.err}` : "")).slice(-4000); o.scrollTop = o.scrollHeight; }
+    if (j.state === "running") return setTimeout(poll, 1500);
+    box.querySelector("b").innerHTML = j.state === "done" ? "Done" : "It stopped. See why below.";
+    await load();
+  };
+  poll();
+}
+
 function waitJob(id, onTick) {
   return new Promise((ok) => {
     const tick = async () => {
@@ -592,18 +644,7 @@ $("#scheduleBtn").onclick = async () => {
   if (!S.agent) { alert("Claude Code isn't installed on this computer. Open your agent in this folder and say: schedule the approved posts."); return; }
   if (!confirm(`Hand ${n} approved post${n === 1 ? "" : "s"} to your agent to schedule through Posthuman?`)) return;
   const { job } = await api("POST", "/api/schedule");
-  const box = $("#job");
-  box.classList.add("open");
-  box.innerHTML = `<div class="row" style="justify-content:space-between"><b><span class="spin"></span> Scheduling ${n}…</b><button class="ghost" id="jobClose">✕</button></div><pre id="jobOut"></pre>`;
-  $("#jobClose").onclick = () => box.classList.remove("open");
-  const poll = async () => {
-    const j = await api("GET", `/api/job/${job}`);
-    const o = $("#jobOut"); if (o) { o.textContent = (j.out + (j.state === "failed" && j.err ? `\n${j.err}` : "")).slice(-4000); o.scrollTop = o.scrollHeight; }
-    if (j.state === "running") return setTimeout(poll, 1500);
-    box.querySelector("b").innerHTML = j.state === "done" ? "Done" : "It stopped. See why below.";
-    await load();
-  };
-  poll();
+  showJob(job, `Scheduling ${n}…`);
 };
 
 // ---------- ideas + library drawers ----------
@@ -715,18 +756,18 @@ async function drawRaw() {
   const wk = new Date(`${RAW.week}T12:00:00`);
   const listEdit = (key, ph) => `<div class="list-edit">${RAW[key].map((x, i) => `<div class="row"><input type="text" data-k="${key}" data-i="${i}" value="${esc(x)}" placeholder="${ph}"><button class="ghost" data-rm="${key}" data-i="${i}" aria-label="Remove">✕</button></div>`).join("")}
     <div class="row"><input type="text" data-new="${key}" placeholder="${ph}"><button data-add="${key}">Add</button></div></div>`;
-  $("#v-raw").innerHTML = head("This week's raw", `The week of ${esc(fmtDay(wk))}. Three real things are enough: a screenshot, a number, something that happened. The week gets drafted from these, so true things only.`) + needAgent() + `
+  $("#v-raw").innerHTML = head("This week's raw", `The week of ${esc(fmtDay(wk))}. Three real things are enough: a screenshot, a number, something that happened. Each line becomes one post, so true things only, and say how it should come across if you know ("hyped, I love this one").`) + needAgent() + `
     <div class="cols">
       <div class="stack" style="display:grid;gap:14px">
         <div class="panel"><h3 class="label">Screenshots</h3>
           <div class="list-edit">${RAW.shots.map((x, i) => `<div class="media-item">${/\.(mp4|mov)$/i.test(x.file) ? `<video src="${media(x.file)}" muted preload="metadata"></video>` : `<img src="${media(x.file)}" alt="">`}<input type="text" data-shot="${i}" value="${esc(x.note)}" placeholder="What it shows, in a few words"><button class="ghost" data-rmshot="${i}" aria-label="Remove">✕</button></div>`).join("")}</div>
           <div class="drop" id="rawDrop" style="margin-top:10px">Drop a screenshot or clip</div></div>
         <div class="panel"><h3 class="label">Numbers</h3>${listEdit("numbers", "e.g. 3 sign-ups, 40 hours saved, $0 MRR")}</div>
-        <div class="panel"><h3 class="label">What happened</h3>${listEdit("happened", "e.g. the app logged me out at midnight")}</div>
+        <div class="panel"><h3 class="label">What happened</h3>${listEdit("happened", "e.g. the app logged me out at midnight. Make it funny, the joke's on me")}</div>
       </div>
       <div class="panel">
         <h3 class="label">Then</h3>
-        <p class="small">Your agent drafts the week from these first, then from your ideas. Every post says what it gives, gets the substance check and the humanize pass, and lands on the Week as a draft. Nothing is scheduled.</p>
+        <p class="small">Your agent writes one post for each line here, and nothing it picked itself. Where a line doesn't say how it should feel, you get two takes to choose from. Every post says what it gives, gets the substance check and the humanize pass, and lands on the Week as a draft. Nothing is scheduled.</p>
         <button class="lit" id="draftWeek" ${S.agent ? "" : "disabled"} style="width:100%">Draft the week from this</button>
         <pre id="draftOut" class="small" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre>
       </div>
@@ -956,20 +997,96 @@ async function drawStuff(reload = false) {
 
 // ---------- Accounts ----------
 
-let AC = { busy: false, out: "" };
+let AC = { busy: false, out: "", sugg: {}, working: {} };
+const ROLE_TXT = { own: "its own posts, written for here", copy: "the same posts as my main account", big: "only the big moments" };
+function suggForm(a, x) {
+  const id = a.account_id;
+  const inp = (k, label, ph, max) => `<label class="small">${label}</label><input type="text" data-sg="${id}" data-k="${k}" maxlength="${max}" value="${esc(x[k] || "")}" placeholder="${esc(ph)}">`;
+  const box = (k, label) => `<label class="small row" style="gap:6px"><input type="checkbox" data-sg="${id}" data-k="${k}" ${x[k] ? "checked" : ""}> ${label}</label>`;
+  return `<div class="suggest" style="display:grid;gap:6px;margin-top:8px">
+    <div class="small muted">Suggested${x.why ? `: ${esc(x.why)}` : ""}. Nothing is saved until you press Save.</div>
+    ${inp("audience", "Who reads it", "parents of 5 to 8 year olds", 200)}
+    ${inp("sound", "How you sound here", "warmer, shorter", 200)}
+    <label class="small">What goes here</label><select data-sg="${id}" data-k="role">${Object.entries(ROLE_TXT).map(([k, v]) => `<option value="${k}" ${x.role === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>
+    ${inp("rhythm", "How often", "twice a week, mornings", 120)}
+    <div class="row" style="gap:12px;flex-wrap:wrap">${box("no_hashtags", "no hashtags")}${box("no_links", "no links")}${box("no_emoji", "no emoji")}</div>
+    ${inp("never_name", "Never name", "my day job, the kids' names", 200)}
+    <label class="small">A post of yours that's so you</label><textarea rows="3" data-sg="${id}" data-k="example" maxlength="600">${esc(x.example || "")}</textarea>
+    <div class="row"><button class="lit" data-save="${id}" ${AC.working[id] ? "disabled" : ""}>${AC.working[id] === "save" ? `<span class="spin"></span> Saving…` : "Save to Posthuman"}</button><button class="ghost" data-dismiss="${id}">Not this</button></div>
+  </div>`;
+}
 function drawAccounts() {
   const A = S.accounts || { accounts: [] };
   const ph = A.posthuman ? `${A.posthuman}/accounts` : "";
   const synced = A.synced ? new Date(A.synced).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   const row = (k, v) => (v ? `<dt>${k}</dt><dd>${esc(Array.isArray(v) ? v.join("; ") : v)}</dd>` : "");
-  $("#v-accounts").innerHTML = head("Accounts", "How each account works, as you set it up in Posthuman (Make it yours): who reads it, how you sound there, what goes there, how often, the hard no's. Your agent writes to fit it, and the Week flags a post that breaks a no.", `<div class="row">${ph ? `<a class="small" href="${esc(ph)}" target="_blank" rel="noopener">Change it in Posthuman ↗</a>` : ""}<button class="lit" id="acRefresh" ${AC.busy || !S.agent ? "disabled" : ""}>${AC.busy ? `<span class="spin"></span> Refreshing…` : "Refresh from Posthuman"}</button></div>`) + needAgent() + `
+  const unset = A.accounts.filter((a) => !a.setup && a.account_id);
+  const shown = Object.keys(AC.sugg).length;
+  const busy = (id) => !!AC.working[id];
+  $("#v-accounts").innerHTML = head("Accounts", "How each account works, as you set it up in Posthuman (Make it yours): who reads it, how you sound there, what goes there, how often, the hard no's. Your agent writes to fit it, and the Week flags a post that breaks a no.", `<div class="row">${ph ? `<a class="small" href="${esc(ph)}" target="_blank" rel="noopener">Change it in Posthuman ↗</a>` : ""}${unset.length > 1 ? `<button id="acSuggestAll" ${!S.agent || AC.working.all ? "disabled" : ""}>${AC.working.all ? `<span class="spin"></span> Suggesting…` : `You choose: suggest all ${unset.length}`}</button>` : ""}${shown > 1 ? `<button class="lit" id="acSaveAll" ${!S.agent ? "disabled" : ""}>Save all ${shown}</button>` : ""}<button class="lit" id="acRefresh" ${AC.busy || !S.agent ? "disabled" : ""}>${AC.busy ? `<span class="spin"></span> Refreshing…` : "Refresh from Posthuman"}</button></div>`) + needAgent() + `
     ${synced ? `<p class="small muted" style="margin-top:-6px">This copy is from ${esc(synced)} (brand/accounts.md).</p>` : `<div class="panel small" style="margin-bottom:14px">No copy here yet. Press <b>Refresh from Posthuman</b>, or open your agent in this folder: it refreshes the copy at the start of every session.</div>`}
     ${AC.out ? `<div class="notes">${esc(AC.out)}</div>` : ""}
     <div class="acct-grid">${A.accounts.map((a) => `<div class="panel acct-card ${a.setup ? "" : "unset"}">
-      <div class="row" style="justify-content:space-between"><h3>${esc(a.account)}</h3>${a.setup ? "" : `<span class="pill">not set up</span>`}</div>
+      <div class="row" style="justify-content:space-between"><h3>${esc(a.account)}</h3><span>${a.intro === "yes" ? `<span class="pill">new here</span>` : ""}${a.setup ? "" : `<span class="pill">not set up</span>`}</span></div>
       ${a.setup ? `<dl>${row("Who reads it", a.setup.who_reads_it)}${row("Sounds", a.setup.sounds)}${row("What goes here", a.setup.what_goes_here)}${row("How often", a.setup.how_often)}${row("Never", a.setup.never)}</dl>${a.setup.like_this ? `<div class="example">${esc(a.setup.like_this)}</div>` : ""}`
-        : `<p class="small">Six quick answers make it yours. Answer them in Posthuman${ph ? ` (<a href="${esc(ph)}" target="_blank" rel="noopener">Accounts</a>)` : ""}, or tell your agent: “set up my ${esc(platformOf(a.account).name)} account”. It asks them one at a time.</p>`}
+        : AC.sugg[a.account_id] ? suggForm(a, AC.sugg[a.account_id])
+        : `<p class="small">Six quick answers make it yours. Answer them in Posthuman${ph ? ` (<a href="${esc(ph)}" target="_blank" rel="noopener">Accounts</a>)` : ""}, tell your agent “set up my ${esc(platformOf(a.account).name)} account” (it asks one at a time), or let your agent suggest them from your posts.</p>
+          ${a.account_id ? `<button data-suggest="${a.account_id}" ${!S.agent || busy(a.account_id) || AC.working.all ? "disabled" : ""}>${AC.working[a.account_id] === "suggest" ? `<span class="spin"></span> Reading your posts…` : "You choose: suggest the six"}</button>` : ""}`}
+      ${a.intro === "yes" ? `<div class="row small" style="margin-top:10px;justify-content:space-between"><span class="muted">No posts here yet. Say hello first?</span><button data-intro="${esc(a.account)}" ${!S.agent || AC.working[`i${a.account_id}`] ? "disabled" : ""}>${AC.working[`i${a.account_id}`] ? `<span class="spin"></span> Writing…` : "Write an intro"}</button></div>` : ""}
+      ${a.intro === "skip" ? `<p class="small muted" style="margin-top:10px">No posts here yet, but people find posts here by searching, so a hello reaches no one. Start with a real post.</p>` : ""}
     </div>`).join("")}</div>`;
+  const v = $("#v-accounts");
+  const answers = (id) => {
+    const x = { ...AC.sugg[id] };
+    v.querySelectorAll(`[data-sg="${id}"]`).forEach((el) => (x[el.dataset.k] = el.type === "checkbox" ? el.checked : el.value));
+    return x;
+  };
+  v.querySelectorAll("[data-sg]").forEach((el) => (el.oninput = el.onchange = () => (AC.sugg[el.dataset.sg] = answers(el.dataset.sg))));
+  const suggest = async (ids, key) => {
+    ids.forEach((id) => (AC.working[id] = "suggest")); AC.working[key] = 1; AC.out = ""; drawAccounts();
+    try {
+      const { job } = await api("POST", "/api/accounts/suggest", { ids });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      for (const x of j.suggestions || []) AC.sugg[x.account_id] = x;
+      if (!(j.suggestions || []).length) AC.out = "Your agent didn't suggest anything. Try again, or answer them in Posthuman.";
+    } catch (e) { AC.out = e.message; }
+    ids.forEach((id) => delete AC.working[id]); delete AC.working[key];
+    if (view === "accounts") drawAccounts();
+  };
+  const save = async (ids) => {
+    const items = ids.map((id) => ({ account_id: Number(id), ...answers(id) }));
+    ids.forEach((id) => (AC.working[id] = "save")); AC.out = ""; drawAccounts();
+    try {
+      const { job } = await api("POST", "/api/accounts/save", { items });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      for (const id of j.saved || []) delete AC.sugg[id];
+      const missed = (j.results || []).filter((r) => !r.saved);
+      if (missed.length) AC.out = missed.map((r) => `Not saved (${r.account_id}): ${r.say || "Posthuman said no"}`).join("\n");
+      await load(false); toast(`${(j.saved || []).length} saved to Posthuman`);
+    } catch (e) { AC.out = e.message; }
+    ids.forEach((id) => delete AC.working[id]);
+    if (view === "accounts") drawAccounts();
+  };
+  v.querySelectorAll("[data-suggest]").forEach((b) => (b.onclick = () => suggest([Number(b.dataset.suggest)], `s${b.dataset.suggest}`)));
+  $("#acSuggestAll") && ($("#acSuggestAll").onclick = () => suggest(unset.map((a) => a.account_id), "all"));
+  v.querySelectorAll("[data-save]").forEach((b) => (b.onclick = () => save([b.dataset.save])));
+  $("#acSaveAll") && ($("#acSaveAll").onclick = () => save(Object.keys(AC.sugg)));
+  v.querySelectorAll("[data-dismiss]").forEach((b) => (b.onclick = () => { delete AC.sugg[b.dataset.dismiss]; drawAccounts(); }));
+  v.querySelectorAll("[data-intro]").forEach((b) => (b.onclick = async () => {
+    const a = A.accounts.find((x) => x.account === b.dataset.intro);
+    const key = `i${a.account_id}`;
+    AC.working[key] = 1; AC.out = ""; drawAccounts();
+    try {
+      const { job } = await api("POST", "/api/accounts/intro", { account: a.account });
+      const j = await waitJob(job);
+      if (j.state !== "done") throw new Error((j.err || j.out || "It stopped.").slice(-400));
+      await load(false); toast(j.file ? `Intro drafted: ${j.file.replace(/^posts\//, "")}. It's on the Week, not scheduled.` : "Intro drafted. It's on the Week, not scheduled.");
+    } catch (e) { AC.out = e.message; }
+    delete AC.working[key];
+    if (view === "accounts") drawAccounts();
+  }));
   $("#acRefresh").onclick = async () => {
     AC.busy = true; AC.out = ""; drawAccounts();
     try {
