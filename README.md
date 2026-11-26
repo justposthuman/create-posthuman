@@ -3,6 +3,9 @@
 A starter folder for your own AI agent. Your brand's voice, ideas, media and posts live on your computer as plain
 files, so every chat starts knowing what the last one learned. Posts go out through Posthuman.
 
+Free and open source (MIT, see LICENSE): use it, change it, make it your own. Posting goes through a Posthuman
+account (free to start).
+
 ```
 npx create-posthuman my-brand
 cd my-brand
