@@ -204,6 +204,30 @@ export function draftWeek(week) {
   return runAgent("draft-week", prompt, [...mcpConfig(), "--allowedTools", "Read", "Write", "Edit", "Glob", "Grep", "Bash(node tools/substance.mjs:*)", "Bash(node tools/humanize.mjs:*)", ...POSTHUMAN_READ]);
 }
 
+/** Update the week: what the user's news makes stale in the posts still to come, as suggestions only. */
+export function updateWeek(week) {
+  const r = rawOf(week);
+  const news = r.shots.length || r.numbers.length || r.happened.length;
+  const today = new Date().toLocaleDateString("en-CA");
+  const prompt =
+    `Follow AGENTS.md, *Keep the week true*. ${news ? `The user's news is raw/${week}.md. Read it,` : `There's no news written down this week, so check only against today's date (${today}): counts of days, "this week", dates that have passed. Read`} brand/about.md (and brands/*/about.md), then every post in posts/ (not posts/dropped/) whose status is draft, approved or scheduled and whose date (from its file name or when:) is ${today} or later. ` +
+    `Find words in those posts that the news (or simply today's date, ${today}) has made untrue or out of date: numbers and counts, "days left", "so far", prices, "coming soon" / "not yet" / "soon", anything the news contradicts. ` +
+    `For each post with something stale, add (or replace) a section at the end of its file titled exactly "# Update suggested", one item per change, in this form:\n- old: <the exact words, copied character for character from that post's main words or one account's own words>\n  new: <the replacement, in the post's voice, true to the news>\n  why: <a few words: which line of the news, or the date>\n` +
+    `Keep each old/new short (a phrase or a sentence, not the whole post). Never change the words, status, or anything else in a post, never write new posts (Draft the week does that), never touch Posthuman. Only true things: if the news doesn't say it, don't suggest it. ` +
+    `At the end, list which posts got suggestions and what, in a few lines, or say nothing needed changing.`;
+  return runAgent("update-week", prompt, ["--allowedTools", "Read", "Edit", "Glob", "Grep"]);
+}
+const POSTHUMAN_EDIT = ["get_post", "update_post"].map((t) => `mcp__posthuman__${t}`);
+/** A scheduled post the user just applied changes to: the same changes in Posthuman, in place. */
+export function sendUpdate(slug, postId, items) {
+  const prompt =
+    `The user pressed Apply in Studio on posts/${slug}.md, which is scheduled in Posthuman as post ${postId}. Make exactly these changes there, nothing else:\n` +
+    items.map((x) => `- replace "${x.old}" with "${x.new}"`).join("\n") +
+    `\nCall get_post ${postId}. For the main caption and every account's own words that contain one of those phrases, call update_post ${postId} with the new words (send accounts as the full list, keeping each account's other words exactly; keep the time and media). Then get_post again and confirm the words are right. ` +
+    `If an account already posted, say so (it can't change). Report in one or two lines.`;
+  return runAgent("send-update", prompt, [...mcpConfig(), "--allowedTools", ...POSTHUMAN_EDIT]);
+}
+
 // ---------- Make ----------
 
 export const keys = () => ({ ...keysWith(key), voice: !!key("ELEVENLABS_VOICE_ID") });

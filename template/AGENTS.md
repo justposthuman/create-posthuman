@@ -161,6 +161,15 @@ isn't open at one of those moments, ask once: "Want Studio open to look at them?
 background (`node tools/studio.mjs`: it opens their browser and finds a free port; started again, it opens the
 one already running) and give the address it prints. Once per moment is enough, not under every message.
 
+**Keep the week true.** When the user shares news (a line in this week's raw, or just telling you: "first sale",
+"Etsy sold 3", "the bug's fixed"), check the drafts and scheduled posts still to come for words it makes stale:
+numbers, "days left", "so far", prices, "coming soon". Today's date alone can do it ("19 days left" on a post that
+now goes out later). Don't change them yourself: add a `# Update suggested` section to each such post, one item per
+change (`- old:` the exact words from the post, `  new:` the replacement in its voice, `  why:` the news line), and
+tell the user. They press **Apply** in Studio (or say yes to you). A scheduled post then changes in place with
+`update_post`, never cancel and make again. Studio's **This week's raw → Update the week from this** does the check.
+New news that deserves its own post: ask for the angle, as always.
+
 **After it goes out.** A few days later (or when the user asks "how did it do"), `get_results` for posts marked
 `scheduled` or `posted`. Note the numbers in the post file, and say plainly how they move the goal. Something clearly beat the usual: one line under *What
 worked* in `brand/voice.md`, and `remember` it on that account (section `worked`).

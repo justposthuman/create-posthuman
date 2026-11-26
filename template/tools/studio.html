@@ -394,7 +394,7 @@ function card(p) {
     ${p.accounts?.length ? `<div class="plats">${esc(platformsLine(p.accounts))}</div>` : ""}
     <div class="txt">${esc(first)}</div>
     ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}
-    <div class="foot"><span class="pill ${esc(p.status)}">${esc(p.status)}</span>${n > 1 ? `<span class="pill">${n} parts</span>` : ""}${p.flagged ? `<span class="flag">needs you</span>` : ""}${p.substance?.length ? `<span class="flag" title="${esc(p.substance.map((x) => x.issue).join(", "))}">${p.gives ? "thin" : "gives nothing"}</span>` : ""}${p.tells?.length ? `<span class="pill tells" title="${esc(p.tells.map((t) => t.tell).join(", "))}">${p.tells.length} AI tell${p.tells.length === 1 ? "" : "s"}</span>` : ""}${p.fits?.length ? `<span class="flag" title="${esc(p.fits.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">breaks a no</span>` : ""}${p.long?.length ? `<span class="flag" title="${esc(p.long.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">too long</span>` : ""}${p.first_draft ? `<span class="pill" title="You edited it; your agent learns from the change">edited</span>` : ""}${p.topic ? `<span class="topic" title="${esc(p.gives ? `gives: ${p.gives}. ${p.payload || ""}` : "")}">${esc(p.topic)}</span>` : ""}</div>
+    <div class="foot"><span class="pill ${esc(p.status)}">${esc(p.status)}</span>${n > 1 ? `<span class="pill">${n} parts</span>` : ""}${p.flagged ? `<span class="flag">needs you</span>` : ""}${p.substance?.length ? `<span class="flag" title="${esc(p.substance.map((x) => x.issue).join(", "))}">${p.gives ? "thin" : "gives nothing"}</span>` : ""}${p.tells?.length ? `<span class="pill tells" title="${esc(p.tells.map((t) => t.tell).join(", "))}">${p.tells.length} AI tell${p.tells.length === 1 ? "" : "s"}</span>` : ""}${p.fits?.length ? `<span class="flag" title="${esc(p.fits.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">breaks a no</span>` : ""}${p.long?.length ? `<span class="flag" title="${esc(p.long.map((f) => `${f.account}: ${f.issues.map((i) => i.issue).join(", ")}`).join("; "))}">too long</span>` : ""}${p.first_draft ? `<span class="pill" title="You edited it; your agent learns from the change">edited</span>` : ""}${p.update_suggested?.length ? `<span class="flag" title="${esc(p.update_suggested.map((x) => `${x.old} → ${x.new}`).join("; "))}">update?</span>` : ""}${p.topic ? `<span class="topic" title="${esc(p.gives ? `gives: ${p.gives}. ${p.payload || ""}` : "")}">${esc(p.topic)}</span>` : ""}</div>
   </div>`;
 }
 /** "X · Bluesky · Threads", or "X · Bluesky +3" when there are many. */
@@ -473,6 +473,7 @@ function drawSheet() {
         <h3>Fits each account?</h3>
         <div id="fits"></div>
 
+        ${updatesBlock(p)}
         <h3>Rewrite</h3>
         <div class="row" style="flex-wrap:nowrap">
           <input type="text" id="note" placeholder="${S.agent ? "punchier · less salesy · end on a question" : "a note for your agent (it picks it up next time)"}">
@@ -510,6 +511,7 @@ function drawSheet() {
   $("#ai").onchange = (e) => { open.made_with_ai = e.target.checked; dirty(); };
   $("#rewrite").onclick = () => rewrite();
   $("#humanize").onclick = () => rewrite(true);
+  $("#sheet").querySelectorAll("[data-upd]").forEach((b) => (b.onclick = () => applyUpdate(b.dataset.upd === "all" ? "all" : [Number(b.dataset.upd)], b.dataset.dismiss === "1")));
   $("#note").onkeydown = (e) => { if (e.key === "Enter") rewrite(); };
   $("#pick").onclick = () => drawPicker();
   dropZone($("#drop"), async (file) => { open.media.push(file); dirty(); drawSheet(); });
@@ -645,6 +647,41 @@ async function rewrite(humanize = false) {
   $("#useIt").onclick = () => { open.everywhere = fresh; dirty(); drawSheet(); };
   $("#keep").onclick = () => (out.innerHTML = "");
   $("#again").onclick = () => rewrite(humanize);
+}
+
+/** What "Update the week" found stale in this post: each change with Apply / Dismiss. */
+function updatesBlock(p) {
+  const u = p.update_suggested || [];
+  if (!u.length) return "";
+  const live = ["scheduled", "sending"].includes(p.status) && p.post_id;
+  return `<h3>Update suggested</h3>
+    <div class="small muted">Your news makes ${u.length === 1 ? "this line" : "these lines"} out of date.${live ? " Applying changes it here and in Posthuman, in place." : ""}</div>
+    ${u.map((x, i) => `<div class="panel" style="margin-top:8px;padding:10px 12px">
+      <div class="small"><s class="muted">${esc(x.old)}</s></div>
+      <div style="margin-top:4px">${esc(x.new)}</div>
+      ${x.why ? `<div class="small muted" style="margin-top:4px">${esc(x.why)}</div>` : ""}
+      <div class="row" style="margin-top:8px"><button class="primary small" data-upd="${i}">Apply</button><button class="ghost small" data-upd="${i}" data-dismiss="1">Dismiss</button></div>
+    </div>`).join("")}
+    ${u.length > 1 ? `<div class="row" style="margin-top:8px"><button class="small" data-upd="all">Apply all ${u.length}</button><button class="ghost small" data-upd="all" data-dismiss="1">Dismiss all</button></div>` : ""}
+    <div id="updOut" class="small muted" style="margin-top:6px"></div>`;
+}
+async function applyUpdate(items, dismiss) {
+  if (open.dirty) await save();
+  const slug = open.slug;
+  try {
+    const r = await api("POST", `/api/update/${encodeURIComponent(slug)}`, { items, dismiss });
+    await load(false);
+    openPost(slug);
+    const out = $("#updOut") || $("#rewriteOut");
+    if (r.missing?.length) toast(`Not found in the words any more: ${r.missing.join("; ")}`);
+    else toast(dismiss ? "Dismissed" : r.applied ? "Updated" : "Nothing changed");
+    if (r.job && out) {
+      out.innerHTML = `<span class="spin"></span> Changing it in Posthuman too…`;
+      const j = await waitJob(r.job);
+      if (open?.slug === slug && $("#updOut")) $("#updOut").textContent = j.state === "done" ? j.out.trim() : `Posthuman wasn't changed: ${(j.err || j.out).slice(-300)}. Change it there by hand, or ask your agent.`;
+      else toast(j.state === "done" ? "Changed in Posthuman too" : "Posthuman wasn't changed: ask your agent");
+    }
+  } catch (e) { alert(e.message); }
 }
 
 /** The job box at the bottom: what the agent is doing, live, until it's done. */
@@ -805,6 +842,7 @@ async function drawRaw() {
         <h3 class="label">Then</h3>
         <p class="small">Your agent writes one post for each line here, and nothing it picked itself. Where a line doesn't say how it should feel, you get two takes to choose from. Every post says what it gives, gets the substance check and the humanize pass, and lands on the Week as a draft. Nothing is scheduled.</p>
         <button class="lit" id="draftWeek" ${S.agent ? "" : "disabled"} style="width:100%">Draft the week from this</button>
+        <button id="updateWeek" ${S.agent ? "" : "disabled"} style="width:100%;margin-top:8px" title="Checks the drafts and scheduled posts still to come for lines this news makes out of date, and suggests the change on each. Nothing changes until you press Apply.">Update the week from this</button>
         <pre id="draftOut" class="small" style="white-space:pre-wrap;max-height:300px;overflow:auto"></pre>
       </div>
     </div>`;
@@ -824,6 +862,20 @@ async function drawRaw() {
       const { job } = await api("POST", "/api/draft-week", { week: RAW.week });
       const j = await waitJob(job, (j) => (out.textContent = j.out.slice(-3000) || "Drafting…"));
       out.textContent = j.state === "done" ? j.out.trim() : `It stopped:\n${(j.err || j.out).slice(-600)}`;
+      await load(false);
+    } catch (e) { out.textContent = e.message; }
+  };
+  wireUpdateWeek();
+}
+function wireUpdateWeek() {
+  const b = $("#updateWeek");
+  if (!b) return;
+  b.onclick = async () => {
+    const out = $("#draftOut"); out.innerHTML = `<span class="spin"></span> Checking the posts still to come against your news…`;
+    try {
+      const { job } = await api("POST", "/api/update-week", { week: RAW.week });
+      const j = await waitJob(job, (j) => (out.textContent = j.out.slice(-3000) || "Checking…"));
+      out.textContent = j.state === "done" ? `${j.out.trim()}\n\nPosts with a change to look at say "update?" on the Week.` : `It stopped:\n${(j.err || j.out).slice(-600)}`;
       await load(false);
     } catch (e) { out.textContent = e.message; }
   };

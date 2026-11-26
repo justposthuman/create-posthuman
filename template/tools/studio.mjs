@@ -22,9 +22,9 @@ import { fileURLToPath } from "node:url";
 import { check, parseVoice } from "./humanize-rules.mjs";
 import { lengthCheck, lengthsFor } from "./length-rules.mjs";
 import { brandFile, brandOfPost, brandsOf, slugOf } from "./brands.mjs";
-import { listOf, parsePost, wordsFor, writePost } from "./post-rules.mjs";
+import { applyUpdates, listOf, parsePost, updatesOf, updatesText, wordsFor, writePost } from "./post-rules.mjs";
 import { substance } from "./substance-rules.mjs";
-import { draftWeek, jobs, keepAngle, keys, make, rawOf, RECIPES, runAgent, saveRaw, startBrainstorm, stockSearch, weekOf } from "./studio-more.mjs";
+import { draftWeek, jobs, keepAngle, keys, make, rawOf, RECIPES, runAgent, saveRaw, sendUpdate, startBrainstorm, stockSearch, updateWeek, weekOf } from "./studio-more.mjs";
 import { JOBS, PROVIDERS } from "./providers.mjs";
 import { addToLibrary, parseArgs, ROOT, typeOf } from "./lib.mjs";
 import { fitCheck, setupFor } from "./account-rules.mjs";
@@ -119,7 +119,9 @@ function postView(file) {
     long: list(p.front.accounts).map((acct) => ({ account: acct, issues: lengthCheck(acct, wordsFor(p, acct), { media: list(p.front.media).length, max: setupFor(acct, ACCTS())?.max }) })).filter((f) => f.issues.length),
     first_draft: p.other.find((s) => s.title === "First draft")?.text ?? null,
     rewrite_asked: p.other.find((s) => s.title === "Rewrite asked")?.text ?? null,
-    other: p.other.filter((s) => !["Notes", "First draft", "Rewrite asked"].includes(s.title)),
+    // What news made stale, waiting for the user's Apply (post-rules.mjs updatesOf)
+    update_suggested: updatesOf(p.other.find((s) => s.title === "Update suggested")?.text),
+    other: p.other.filter((s) => !["Notes", "First draft", "Rewrite asked", "Update suggested"].includes(s.title)),
     mtime: fs.statSync(full).mtimeMs,
   };
 }
@@ -271,6 +273,34 @@ function addIdea(text) {
 
 const HUMANIZE = fs.existsSync(path.join(ROOT, "recipes", "humanize.md")) ? read(path.join(ROOT, "recipes", "humanize.md")) : "";
 
+function applySuggested(slug, which, dismiss) {
+  const full = path.join(POSTS, `${slug}.md`);
+  const p = parsePost(read(full));
+  const sec = p.other.find((s) => s.title === "Update suggested");
+  const all = updatesOf(sec?.text);
+  const pick = which === "all" ? all.map((_, i) => i) : (Array.isArray(which) ? which : []).map(Number).filter((i) => i >= 0 && i < all.length);
+  const chosen = pick.map((i) => all[i]);
+  let applied = [];
+  let missing = [];
+  let next = p;
+  if (!dismiss && chosen.length) ({ post: next, applied, missing } = applyUpdates(p, chosen));
+  const left = all.filter((_, i) => !pick.includes(i));
+  next.other = next.other.filter((s) => s.title !== "Update suggested");
+  if (left.length) next.other.push({ title: "Update suggested", text: updatesText(left) });
+  fs.writeFileSync(full, writePost(next));
+  // Scheduled: the same words go to Posthuman, in place (only when something changed here)
+  const id = String(p.front.posthuman_post_id || "").trim();
+  let job = null;
+  if (applied.length && /^\d+$/.test(id) && ["scheduled", "sending"].includes(p.front.status)) {
+    if (hasClaude) job = sendUpdate(slug, id, applied).id;
+    else {
+      next.other = next.other.filter((s) => s.title !== "Notes").concat({ title: "Notes", text: `${p.other.find((s) => s.title === "Notes")?.text ?? ""}\nCONFIRM: changed here, not yet in Posthuman (post ${id}): ${applied.map((x) => `"${x.old}" → "${x.new}"`).join("; ")}`.trim() });
+      fs.writeFileSync(full, writePost(next));
+    }
+  }
+  return { post: postView(`${slug}.md`), applied: applied.length, missing: missing.map((x) => x.old), job };
+}
+
 function rewritePrompt(slug, note, humanize) {
   const p = postView(`${slug}.md`);
   if (humanize)
@@ -368,7 +398,7 @@ const server = http.createServer(async (req, res) => {
     if (!u.pathname.startsWith("/api/")) return send(res, 404, { error: "not here" });
     if (req.headers["x-studio-token"] !== TOKEN) return send(res, 403, { error: "token" });
     // "PUT /api/post/:id" style names: only the post and job routes carry an id.
-    const withId = u.pathname.match(/^\/api\/(post|rewrite|job)\/([\w.-]+)$/);
+    const withId = u.pathname.match(/^\/api\/(post|rewrite|job|update)\/([\w.-]+)$/);
     const route = `${req.method} ${withId ? `/api/${withId[1]}/:id` : u.pathname}`;
     const id = withId ? withId[2] : "";
 
@@ -566,6 +596,19 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { queued: true, message: "Claude Code isn't installed here, so the note is saved in the post. Your agent picks it up next time." });
       }
       return send(res, 200, { job: runAgent("rewrite", rewritePrompt(slug, String(note || ""), !!humanize), ["--disallowedTools", "Bash", "Edit", "Write"]).id });
+    }
+    // Apply or dismiss what "Update the week" suggested for one post: { items: [index…] | "all", dismiss }.
+    // A draft changes here; a scheduled post changes here and in Posthuman (update_post, the same post).
+    if (route === "POST /api/update/:id") {
+      const slug = safeSlug(id);
+      if (!slug) return send(res, 404, { error: "no such post" });
+      const { items, dismiss } = JSON.parse((await body(req)).toString() || "{}");
+      return send(res, 200, applySuggested(slug, items, !!dismiss));
+    }
+    if (route === "POST /api/update-week") {
+      if (!hasClaude) return noAgent();
+      const { week } = JSON.parse((await body(req)).toString() || "{}");
+      return send(res, 200, { job: updateWeek(/^\d{4}-\d{2}-\d{2}$/.test(week || "") ? week : weekOf()).id });
     }
     if (route === "POST /api/schedule") {
       if (!hasClaude) return send(res, 400, { error: "Claude Code isn't installed here. Open your agent in this folder and say: schedule the approved posts." });

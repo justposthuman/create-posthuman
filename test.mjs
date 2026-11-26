@@ -416,6 +416,51 @@ try {
   ok((await r.json()).queued && fs.readFileSync(path.join(dir, "posts/2026-11-24-hello.md"), "utf8").includes("# Rewrite asked\nHumanize it"), "no agent: Humanize leaves the note for the agent");
   ok((await fetch(base + "/api/schedule", { method: "POST", headers: h })).status === 400, "no agent: Schedule says to ask the agent instead");
 
+  // ---------- Update suggested ----------
+  fs.writeFileSync(path.join(dir, "posts/2026-12-01-upd.md"), `---
+status: draft
+when: 2026-12-01 09:00
+accounts: [X @shop, Threads @shop]
+---
+
+# Words
+
+## Everywhere
+Profit so far: $0. 19 days left.
+
+## Per account (only where it differs)
+- Threads @shop: 19 days left, and counting.
+
+# Notes
+keep me
+
+# Update suggested
+- old: 19 days left
+  new: 18 days left
+  why: the date
+- old: Profit so far: $0.
+  new: First sale this week.
+  why: raw: first sale
+`);
+  st = await (await fetch(base + "/api/state", { headers: h })).json();
+  const up1 = st.posts.find((x) => x.slug === "2026-12-01-upd");
+  ok(up1.update_suggested.length === 2 && up1.update_suggested[0].new === "18 days left" && !up1.other.some((s) => s.title === "Update suggested"), "a post's suggested updates show up as items, not as a loose section");
+  r = await fetch(base + "/api/update/2026-12-01-upd", { method: "POST", headers: h, body: JSON.stringify({ items: [0] }) });
+  let ur = await r.json();
+  let uf = fs.readFileSync(path.join(dir, "posts/2026-12-01-upd.md"), "utf8");
+  ok(ur.applied === 1 && uf.includes("Profit so far: $0. 18 days left.") && uf.includes("- Threads @shop: 18 days left, and counting.") && uf.includes("keep me"), "Apply changes the words everywhere they appear (main and each account's own), keeping the rest");
+  ok(ur.post.update_suggested.length === 1 && ur.post.update_suggested[0].new === "First sale this week." && !ur.job, "…leaves the other suggestion, and a draft needs no trip to Posthuman");
+  r = await fetch(base + "/api/update/2026-12-01-upd", { method: "POST", headers: h, body: JSON.stringify({ items: "all", dismiss: true }) });
+  ur = await r.json();
+  uf = fs.readFileSync(path.join(dir, "posts/2026-12-01-upd.md"), "utf8");
+  ok(ur.post.update_suggested.length === 0 && !uf.includes("# Update suggested") && uf.includes("Profit so far: $0."), "Dismiss drops a suggestion without touching the words");
+  fs.writeFileSync(path.join(dir, "posts/2026-12-01-upd.md"), uf.replace("status: draft", "status: scheduled\nposthuman_post_id: 77") + "\n# Update suggested\n- old: Profit so far: $0.\n  new: First sale.\n");
+  r = await fetch(base + "/api/update/2026-12-01-upd", { method: "POST", headers: h, body: JSON.stringify({ items: "all" }) });
+  uf = fs.readFileSync(path.join(dir, "posts/2026-12-01-upd.md"), "utf8");
+  ok(uf.includes("First sale. 18 days left.") && /CONFIRM: changed here, not yet in Posthuman \(post 77\)/.test(uf), "no agent: a scheduled post changes here and is flagged to change in Posthuman too");
+  ok((await fetch(base + "/api/update-week", { method: "POST", headers: h, body: "{}" })).status >= 400, "no agent: Update the week needs one");
+  fs.rmSync(path.join(dir, "posts/2026-12-01-upd.md"));
+
   // ---------- the rail's other places ----------
   st = await (await fetch(base + "/api/state", { headers: h })).json();
   ok(/^\d{4}-\d{2}-\d{2}$/.test(st.week) && st.keys && st.keys.fal === false && st.recipes.video, "state carries the week, which keys are set (never the keys) and the recipes");
