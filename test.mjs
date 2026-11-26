@@ -51,6 +51,40 @@ fs.writeFileSync(path.join(dir, ".env"), "ELEVENLABS_VOICE_ID=from-env\n");
 r = run("node", ["tools/voice.mjs", "--text", "hi", "--out", "library/v.mp3", "--dry"], dir);
 ok(r.status === 0 && JSON.parse(r.stdout).post.includes("/from-env?"), "the voice comes from .env when not given");
 
+// ---------- more keys: OpenAI, Gemini, Pexels, Replicate, captions (dry runs: nothing is sent) ----------
+{
+  const J = (args) => { const x = run("node", args, dir); return x.status === 0 ? JSON.parse(x.stdout) : { err: x.stderr }; };
+  let d = J(["tools/openai.mjs", "image", "a sign that says OPEN", "--out", "library/sign.png", "--dry"]);
+  ok(d.post?.endsWith("/images/generations") && d.model === "gpt-image-1" && d.size === "1024x1536", "openai: an image, tall by default");
+  d = J(["tools/openai.mjs", "edit", "library/test.png", "on a phone", "--out", "library/p.png", "--dry"]);
+  ok(d.post?.endsWith("/images/edits") && d.image === "library/test.png", "openai: a photo edit");
+  d = J(["tools/openai.mjs", "speak", "Hello there.", "--out", "library/h.mp3", "--voice", "nova", "--dry"]);
+  ok(d.post?.endsWith("/audio/speech") && d.voice === "nova" && d.input === "Hello there.", "openai: a voiceover");
+  const OA = await import(path.join(dir, "tools/openai.mjs"));
+  const srt = OA.wordsToSrt([{ word: "Most", start: 0, end: 0.3 }, { word: "of", start: 0.3, end: 0.4 }, { word: "what", start: 0.4, end: 0.6 }, { word: "I", start: 0.6, end: 0.7 }, { word: "build,", start: 0.7, end: 1 }, { word: "ships.", start: 1.1, end: 1.5 }]);
+  ok(/^1\n00:00:00,000 --> 00:00:00,700\nMost of what I\n/.test(srt) && srt.includes("2\n00:00:00,700 --> 00:00:01,000\nbuild,") && srt.includes("\nships.\n"), "captions: a few words at a time, cut at punctuation, SRT times");
+  d = J(["tools/captions.mjs", "library/test-clip.mp4", "--dry"]);
+  ok(/openai\.mjs transcribe library\/test-clip\.mp4 --out library\/test-clip\.srt/.test(d.hear) && d.burn?.includes("subtitles=captions.srt") && d.out === "library/test-clip-captions.mp4", "captions: hear the words, then burn them in");
+  d = J(["tools/captions.mjs", "library/test-clip.mp4", "--srt", "library/fixed.srt", "--dry"]);
+  ok(/no/.test(d.hear), "…or burn in a .srt you fixed, without OpenAI");
+  d = J(["tools/gemini.mjs", "edit", "library/test.png", "on a desk", "--out", "library/d.png", "--dry"]);
+  ok(d.post?.endsWith("/models/gemini-2.5-flash-image:generateContent") && d.image === "library/test.png", "gemini: a photo edit (Nano Banana)");
+  d = J(["tools/pexels.mjs", "search", "coffee desk", "--shape", "portrait", "--dry"]);
+  ok(d.get?.includes("/v1/search?query=coffee+desk") && d.get.includes("orientation=portrait"), "pexels: a photo search");
+  d = J(["tools/pexels.mjs", "search", "rain", "--videos", "--dry"]);
+  ok(d.get?.includes("/videos/search?query=rain"), "…and clips");
+  const PX = await import(path.join(dir, "tools/pexels.mjs"));
+  ok(PX.pickFile([{ file_type: "video/mp4", link: "4k", width: 3840, height: 2160 }, { file_type: "video/mp4", link: "hd", width: 1080, height: 1920 }, { file_type: "video/mp4", link: "sd", width: 360, height: 640 }]).link === "hd", "…a clip comes as the ~1080 file, not 4K");
+  d = J(["tools/replicate.mjs", "black-forest-labs/flux-1.1-pro", "--input", '{"prompt":"a desk"}', "--out", "library/r.png", "--dry"]);
+  ok(d.post?.endsWith("/models/black-forest-labs/flux-1.1-pro/predictions") && d.input?.prompt === "a desk", "replicate: a model by name");
+  d = J(["tools/replicate.mjs", "owner/m:abc123", "--file", "image=library/test.png", "--out", "library/r.mp4", "--dry"]);
+  ok(d.post?.endsWith("/predictions") && d.version === "abc123" && /^data:image\/png;base64,/.test(d.input?.image), "…or a pinned version, with a local file");
+  const PV = await import(path.join(dir, "tools/providers.mjs"));
+  ok(PV.whoCan("captions")[0].id === "openai" && PV.whoCan("edit", { openai: true })[0].id === "openai" && PV.PROVIDERS.every((p) => /^https:\/\//.test(p.get) && p.env), "providers: every service says its .env line and where to get a key");
+  const envNow = fs.readFileSync(path.join(dir, ".env.example"), "utf8");
+  ok(PV.PROVIDERS.every((p) => envNow.includes(`${p.env}=`)), "…and .env.example has a line for each");
+}
+
 if (haveFf) {
   r = run("node", ["tools/mix.mjs", "--video", "library/test-clip.mp4", "--audio", "library/test-voice.mp3", "--out", "library/test-voiced.mp4"], dir);
   ok(r.status === 0 && fs.statSync(path.join(dir, "library/test-voiced.mp4")).size > 1000, "mix: a real ffmpeg mix works");
@@ -437,6 +471,12 @@ try {
 
   r = await fetch(base + "/api/make", { method: "POST", headers: h, body: JSON.stringify({ recipe: "image", prompt: "a table" }) });
   ok(r.status !== 200 && /FAL_KEY/.test((await r.json()).error), "make without a key: says which key to add");
+  r = await fetch(base + "/api/make", { method: "POST", headers: h, body: JSON.stringify({ recipe: "captions", clip: "test-clip.mp4" }) });
+  ok(r.status !== 200 && /OPENAI_API_KEY/.test((await r.json()).error), "…captions say OPENAI_API_KEY");
+  const stk = await fetch(base + "/api/stock?q=coffee", { headers: h });
+  ok(stk.status === 400 && /PEXELS_API_KEY/.test((await stk.json()).error), "…and stock search says PEXELS_API_KEY");
+  const stS = await (await fetch(base + "/api/state", { headers: h })).json();
+  ok(stS.providers.length === 6 && "openai" in stS.keys && stS.recipes.captions.via.openai, "studio: the page gets every service, which have keys, and what each recipe can use");
 } finally {
   srv.kill();
 }
@@ -505,17 +545,9 @@ try {
   ok(j.state === "done" && j.file === "posts/2026-11-26-threads-intro.md" && s2.posts.some((p) => p.slug === "2026-11-26-threads-intro") && s2.accounts.accounts.find((a) => a.account_id === 21).intro === "", "intro: one draft lands on the Week, and the account stops asking for one");
   ok(!log().at(-1).allowed.some((x) => /create_post|update_post|set_up_account/.test(x)) && /Do NOT schedule/.test(log().at(-1).prompt), "…and the intro agent can't schedule anything");
   ok((await fetch(b2 + "/api/accounts/intro", { method: "POST", headers: h2, body: JSON.stringify({ account: "Nope" }) })).status === 400, "…an account that isn't there is refused");
-  // a post already in Posthuman: Save and send hands the change to the agent, which may only update that post
-  fs.writeFileSync(path.join(dir, "posts/2026-11-27-live.md"), "---\nstatus: scheduled\nposthuman_post_id: 77\nwhen: 2026-11-27 09:00\naccounts: [Threads @shop]\n---\n\n# Words\n\n## Everywhere\nHello there. What do you make?\n");
-  fs.writeFileSync(path.join(dir, "posts/2026-11-27-nolive.md"), "---\nstatus: scheduled\naccounts: [Threads @shop]\n---\n\n# Words\n\n## Everywhere\nHi. What's yours?\n");
-  const sj = await (await fetch(b2 + "/api/send/2026-11-27-live", { method: "POST", headers: h2 })).json();
-  const sjob = await wait(sj.job);
-  const sl = log().at(-1);
-  ok(sjob.state === "done" && /scheduled in Posthuman as post 77/.test(sl.prompt) && /never create or cancel/.test(sl.prompt) && sl.allowed.includes("mcp__posthuman__update_post") && !sl.allowed.some((x) => /create_post|cancel_post|mcp__posthuman$/.test(x)), "send: a scheduled post's change goes to the same post in Posthuman (update only, never a new one)");
-  ok((await fetch(b2 + "/api/send/2026-11-27-nolive", { method: "POST", headers: h2 })).status === 400, "…a post with no Posthuman number isn't sent");
-  for (const f of ["2026-11-27-live", "2026-11-27-nolive"]) fs.rmSync(path.join(dir, `posts/${f}.md`));
   const page2 = await (await fetch(b2 + "/")).text();
-  ok(page2.includes("Save and send") && page2.includes("function platformsLine") && !page2.includes("gives: ${esc(p.gives)}</span>"), "studio page: cards name their platforms, and a scheduled post saves and sends");
+  ok(!page2.includes("Save and send") && page2.includes("function inPosthuman") && page2.includes('class="card inph"') && page2.includes("function platformsLine"), "studio: a post already in Posthuman is a link to it there (the website is where it's changed); cards name their platforms");
+  ok((await fetch(b2 + "/api/send/2026-11-27-live", { method: "POST", headers: h2 })).status === 404, "…and Studio no longer sends changes to Posthuman itself");
 } finally {
   srv2.kill();
   await new Promise((r) => (srv2.exitCode !== null ? r() : srv2.once("exit", r)));

@@ -8,16 +8,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
 <style>
 :root {
-  /* Posthuman's own: violet ground, cream paper, volt = lit */
-  --paper: #f6f1e6; --card: #fcfaf5; --ink: #1a0f3d; --soft: #6b6282; --line: #ddd3bf;
+  /* Posthuman's own, as the website's app looks: white cards on a pale violet-grey ground, violet rail, volt = lit */
+  --paper: #eeebf6; --card: #ffffff; --tint: #ebe5fc; --ink: #1a0f3d; --soft: #574f72; --line: #e2ddef;
   --accent: #4a22d4; --accent-ink: #f6f1e6; --ok: #d2ff3a; --ok-ink: #1b2600; --ok-edge: #a8d400; --night: #1a0f3d;
   --rail: #4a22d4; --rail-ink: #f6f1e6;
   --warn: #fff1c2; --warn-line: #e8c95a; --bad: #c8321f;
-  --shadow: 0 1px 2px rgba(26,15,61,.05), 0 8px 28px rgba(26,15,61,.07);
+  --shadow: 0 1px 2px rgb(26 15 61 / 0.05), 0 10px 30px -14px rgb(26 15 61 / 0.22);
   --display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --paper: #120b2b; --card: #1c1342; --ink: #f6f1e6; --soft: #c2bbde; --line: #51449a; --accent: #7a5af5; --accent-ink: #f6f1e6;
+  :root { --paper: #0b0620; --card: #1c1342; --tint: #2c2160; --ink: #f6f1e6; --soft: #c2bbde; --line: #51449a; --accent: #7a5af5; --accent-ink: #f6f1e6;
     --rail: #1c1342; --warn: #3a3218; --warn-line: #6d5b1f; --bad: #ff8a75; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.3); color-scheme: dark; }
 }
 * { box-sizing: border-box; }
@@ -122,6 +122,10 @@ main { padding: 26px 28px 80px; min-width: 0; }
   transition: transform .12s ease, border-color .12s; }
 .card:hover { transform: translateY(-1px); border-color: var(--soft); }
 .card.dropped { opacity: .5; }
+/* Already in Posthuman: the website is where it lives now, so the card is a link there (lavender, like its calendar) */
+a.card.inph { display: block; color: inherit; text-decoration: none; background: var(--tint); border-color: transparent; box-shadow: none; }
+a.card.inph:hover { border-color: var(--accent); }
+.pill.inph { display: inline-block; background: var(--ok); color: var(--ok-ink); border: 1px solid var(--ok-edge); border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 700; text-decoration: none; }
 .card .top { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--soft); margin-bottom: 4px; }
 .card .txt { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .card .foot { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
@@ -180,6 +184,15 @@ main { padding: 26px 28px 80px; min-width: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .grid .tile { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); cursor: pointer; }
 .grid .tile img, .grid .tile video { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.keyrow { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
+.keyrow b { margin-right: 8px; }
+.keyrow.on { background: var(--tint); border-color: transparent; }
+.keyrow code { font-size: 12px; }
+.stock { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 10px; }
+.stock-item { position: relative; padding: 0; border-radius: 10px; overflow: hidden; aspect-ratio: 3 / 4; border: 1px solid var(--line); }
+.stock-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stock-item .by { position: absolute; right: 4px; bottom: 4px; font-size: 10px; background: rgb(0 0 0 / .6); color: #fff; border-radius: 6px; padding: 1px 5px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
 .lib-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); display: grid; grid-template-rows: auto 1fr; }
 .lib-media { position: relative; display: block; background: #111; aspect-ratio: 4 / 5; }
@@ -242,6 +255,7 @@ h3.label { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-
       <h1 id="weeklabel">This week</h1>
       <div class="week"><button class="ghost" id="prev" aria-label="Previous week">‹</button><button class="ghost" id="next" aria-label="Next week">›</button></div>
       <div class="counts" id="counts"></div>
+      <a class="small" id="toPosthuman" target="_blank" rel="noopener" hidden>Open your calendar in Posthuman ↗</a>
     </div>
     <div class="counts" id="mix" style="margin:-8px 0 14px;flex-wrap:wrap"></div>
     <div class="board" id="board"></div>
@@ -352,13 +366,29 @@ function render() {
   }).join("");
   const undated = S.posts.filter((p) => !p.date && mine(p));
   $("#undated").innerHTML = undated.length ? `<h2>No date</h2><div class="list">${undated.map(card).join("")}</div>` : "";
-  document.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openPost(c.dataset.slug)));
+  document.querySelectorAll(".card[data-slug]").forEach((c) => c.addEventListener("click", () => openPost(c.dataset.slug)));
+  const ph = $("#toPosthuman");
+  if (S.accounts?.posthuman) { ph.href = `${S.accounts.posthuman}/calendar`; ph.hidden = false; }
+}
+/** Where a post that's already in Posthuman lives on the website, or "" (no post number, or no address in .mcp.json). */
+function inPosthuman(p) {
+  const id = String(p.post_id || "").match(/\d+/)?.[0];
+  return (p.status === "scheduled" || p.status === "posted") && id && S.accounts?.posthuman ? `${S.accounts.posthuman}/calendar?post=${id}` : "";
 }
 
 function card(p) {
   const first = parts(p.everywhere)[0];
   const n = parts(p.everywhere).length;
   const thumbs = p.media.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" muted preload="metadata"></video>` : /\.(mp3|wav|m4a)$/i.test(f) ? "" : `<img src="${media(f)}" alt="">`).join("");
+  const ph = inPosthuman(p);
+  // In Posthuman already: the website is the one to change it in. Studio shows it, and the card opens it there.
+  if (ph) return `<a class="card inph" href="${esc(ph)}" target="_blank" rel="noopener" title="Open it in Posthuman: change it there">
+    <div class="top"><span>${esc(p.time || "")}</span>${(S.brands || []).length > 1 && BRAND_PICK === "*" ? `<span class="pill">${esc(brandName(p.brand))}</span>` : ""}</div>
+    ${p.accounts?.length ? `<div class="plats">${esc(platformsLine(p.accounts))}</div>` : ""}
+    <div class="txt">${esc(first)}</div>
+    ${thumbs ? `<div class="thumbs">${thumbs}</div>` : ""}
+    <div class="foot"><span class="pill inph">${p.status === "posted" ? "Posted" : "In Posthuman"} ↗</span>${p.topic ? `<span class="topic">${esc(p.topic)}</span>` : ""}</div>
+  </a>`;
   return `<div class="card ${esc(p.status)}" data-slug="${esc(p.slug)}" tabindex="0">
     <div class="top"><span>${esc(p.time || "")}${p.time && p.kind ? " · " : ""}${esc(p.kind)}</span>${(S.brands || []).length > 1 && BRAND_PICK === "*" ? `<span class="pill">${esc(brandName(p.brand))}</span>` : ""}</div>
     ${p.accounts?.length ? `<div class="plats">${esc(platformsLine(p.accounts))}</div>` : ""}
@@ -402,22 +432,22 @@ function drawSheet() {
   const p = open.base;
   const d = p.date ? new Date(`${p.date}T12:00:00`) : null;
   const accts = p.accounts.length ? p.accounts : ["Everywhere"];
-  const live = isLive(p);
+  const ph = inPosthuman(p);
   $("#sheet").innerHTML = `
     <div class="bar">
       <div class="title">${d ? esc(fmtDay(d)) : "No date"}${p.time ? ` · ${esc(p.time)}` : ""}${p.kind ? ` <span class="muted">· ${esc(p.kind)}</span>` : ""}</div>
-      ${live || p.status === "posted" ? `<span class="pill ${esc(p.status)}">${p.status === "posted" ? "Posted" : "Scheduled in Posthuman"}</span>` : `<div class="row status-row">
+      ${ph ? `<a class="pill inph" href="${esc(ph)}" target="_blank" rel="noopener">${p.status === "posted" ? "Posted" : "In Posthuman"} ↗</a>` : `<div class="row status-row">
         <button class="ok ${open.status === "approved" ? "on" : ""}" data-st="approved">Approve</button>
         <button class="${open.status === "draft" ? "on" : ""}" data-st="draft">Draft</button>
         <button class="${open.status === "dropped" ? "on" : ""}" data-st="dropped">Drop</button>
       </div>`}
-      <button class="primary" id="save" ${open.dirty ? "" : "disabled"}>${live && S.agent ? "Save and send" : "Save"}</button>
+      <button class="primary" id="save" ${open.dirty ? "" : "disabled"}>Save</button>
       <button class="ghost" id="close" aria-label="Close">✕</button>
     </div>
     <div class="body">
       <div>
         ${p.notes ? `<div class="notes">${esc(p.notes)}</div>` : ""}
-        ${p.status === "posted" ? `<div class="notes">This one already went out. Changes here only change your copy.</div>` : live ? `<div class="notes">Scheduled in Posthuman (post ${esc(p.post_id)}). ${S.agent ? "<b>Save and send</b> changes it there too: your agent updates the same post, it doesn't make a new one." : "Save keeps your change here. To change it in Posthuman, ask your agent to update it, or edit it in Posthuman."}</div>` : p.status === "scheduled" ? `<div class="notes">Marked scheduled, but there's no Posthuman post number in the file, so Studio can't send changes. Ask your agent to check it.</div>` : ""}
+        ${ph ? `<div class="notes">This one is in Posthuman now: <a href="${esc(ph)}" target="_blank" rel="noopener">change it there</a> (or ask your agent). Changes here only change your copy.</div>` : p.status === "scheduled" || p.status === "posted" ? `<div class="notes">Marked ${esc(p.status)}, but there's no Posthuman post number in the file. Ask your agent to check it.</div>` : ""}
         ${(S.brands || []).length > 1 ? `<h3>Brand</h3><select id="brandOf">${S.brands.map((b) => `<option value="${esc(b.slug)}" ${open.brand === b.slug ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select>` : ""}
         ${topicsFor(open.brand).length ? `<h3>What it's about</h3><div class="tabs" id="topics">${topicsFor(open.brand).map((t) => `<button class="${open.topic.toLowerCase() === t.name.toLowerCase() ? "on" : ""}" data-t="${esc(t.name)}">${esc(t.name)}</button>`).join("")}</div>` : ""}
         <h3>What it gives the reader</h3>
@@ -585,11 +615,7 @@ async function save() {
     const i = S.posts.findIndex((x) => x.slug === open.slug);
     S.posts[i] = r.post;
     open.base = r.post; open.dirty = false;
-    render(); drawSheet();
-    if (isLive(r.post) && S.agent) {
-      const { job } = await api("POST", `/api/send/${encodeURIComponent(open.slug)}`);
-      showJob(job, "Sending your change to Posthuman…");
-    } else toast(open.status === "approved" ? "Approved" : "Saved");
+    render(); drawSheet(); toast(open.status === "approved" ? "Approved" : "Saved");
   } catch (e) {
     alert(e.message);
     if (e.status === 409) { await load(); openPost(open.slug); }
@@ -620,8 +646,6 @@ async function rewrite(humanize = false) {
   $("#keep").onclick = () => (out.innerHTML = "");
   $("#again").onclick = () => rewrite(humanize);
 }
-
-const isLive = (p) => p.status === "scheduled" && !!p.post_id;
 
 /** The job box at the bottom: what the agent is doing, live, until it's done. */
 function showJob(job, title) {
@@ -681,7 +705,7 @@ function drawRail() {
   $("#nWeek").hidden = !drafts; $("#nWeek").textContent = drafts;
   const todo = S.know?.todo || 0;
   $("#nKnow").hidden = !todo; $("#nKnow").textContent = todo; $("#nKnow").title = `${todo} step${todo === 1 ? "" : "s"} left`;
-  $("#foot").innerHTML = `<div>Agent: <b>${S.agent ? "Claude Code" : "none found"}</b></div><div>fal: <b>${S.keys?.fal ? "key set" : "no key"}</b> · ElevenLabs: <b>${S.keys?.elevenlabs ? "key set" : "no key"}</b></div><div>${S.ideas.length} open idea${S.ideas.length === 1 ? "" : "s"}</div>`;
+  $("#foot").innerHTML = `<div>Agent: <b>${S.agent ? "Claude Code" : "none found"}</b></div><div>Keys: <a href="#make" style="color:inherit"><b>${(() => { const on = (S.providers || []).filter((p) => S.keys?.[p.id]); return on.length ? on.map((p) => esc(p.name)).join(", ") : "none yet"; })()}</b></a></div><div>${S.ideas.length} open idea${S.ideas.length === 1 ? "" : "s"}</div>`;
 }
 const head = (title, sub, extra = "") => `<div class="view-head"><div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ""}</div><div class="grow"></div>${extra}</div>`;
 const needAgent = () => (S.agent ? "" : `<div class="needkey" style="margin-bottom:14px">This needs Claude Code on this computer. Without it, open your agent in this folder and ask it the same thing.</div>`);
@@ -1114,30 +1138,67 @@ function drawAccounts() {
 // ---------- Make ----------
 
 function drawMake() {
-  const R = S.recipes || {}, K = S.keys || {};
+  const R = S.recipes || {}, K = S.keys || {}, P = S.providers || [];
   const photos = S.library.filter((x) => /\.(jpe?g|png|webp)$/i.test(x.file));
   const clips = S.library.filter((x) => /\.(mp4|mov)$/i.test(x.file));
   const opts = (xs) => xs.map((x) => `<option value="${esc(x.file)}">${esc(x.alt || x.file)}</option>`).join("");
-  const missing = (k) => (k === "fal" ? !K.fal && "Add FAL_KEY to .env (fal.ai/dashboard/keys)." : !K.elevenlabs && "Add ELEVENLABS_API_KEY (and ELEVENLABS_VOICE_ID) to .env.");
-  const card = (id, body) => `<div class="panel recipe"><h3>${esc(R[id]?.title || id)}</h3><div class="cost">${esc(R[id]?.cost || "")} · paid to the service with your key</div>${missing(R[id]?.needs) ? `<div class="needkey">${esc(missing(R[id].needs))}</div>` : ""}${body}<button class="lit" data-make="${id}" style="margin-top:12px" ${missing(R[id]?.needs) ? "disabled" : ""}>Make it</button><pre class="small" id="out-${id}" style="white-space:pre-wrap"></pre></div>`;
-  $("#v-make").innerHTML = head("Make", "Pictures, clips and voiceovers, made on your computer with your own keys. Everything lands in the Library. Your own photos and clips beat made-up ones.") + `
+  const nameOf = (id) => P.find((p) => p.id === id)?.name || id;
+  const addLine = (id) => { const p = P.find((x) => x.id === id); return p ? `Add ${p.env} to .env (get one at ${p.get.replace(/^https:\/\//, "")}).` : ""; };
+  // Which service each card uses: the one picked, else the first one with a key.
+  const pick = (id) => { const via = Object.keys(R[id]?.via || {}); const chosen = $(`#via-${id}`)?.value; return via.includes(chosen) ? chosen : via.find((v) => K[v]) || via[0]; };
+  const viaSelect = (id) => {
+    const via = Object.keys(R[id]?.via || {});
+    if (via.length < 2) return "";
+    return `<label>With</label><select id="via-${id}" data-via="${id}">${via.map((v) => `<option value="${v}" ${v === pick(id) ? "selected" : ""}>${esc(nameOf(v))}${K[v] ? "" : " (add its key)"}</option>`).join("")}</select>`;
+  };
+  const card = (id, body, button = true) => {
+    const v = pick(id);
+    return `<div class="panel recipe" id="r-${id}"><h3>${esc(R[id]?.title || id)}</h3><div class="cost" id="cost-${id}">${esc(R[id]?.via?.[v] || "")}${/^free/.test(R[id]?.via?.[v] || "") ? "" : " · paid to the service with your key"}</div>${K[v] ? "" : `<div class="needkey">${esc(addLine(v))}</div>`}${viaSelect(id)}${body}${button ? `<button class="lit" data-make="${id}" style="margin-top:12px" ${K[v] ? "" : "disabled"}>Make it</button>` : ""}<pre class="small" id="out-${id}" style="white-space:pre-wrap"></pre></div>`;
+  };
+  const keyRow = (p) => `<div class="keyrow ${K[p.id] ? "on" : ""}"><b>${esc(p.name)}</b>${K[p.id] ? `<span class="pill inph">added</span>` : `<a href="${esc(p.get)}" target="_blank" rel="noopener" class="small">get a key ↗</a>`}<div class="small muted">${esc(p.note)}</div>${K[p.id] ? "" : `<div class="small"><code>${esc(p.env)}=</code> in .env</div>`}</div>`;
+  $("#v-make").innerHTML = head("Make", "Pictures, clips, captions and voiceovers, made on your computer with your own keys. Everything lands in the Library. Your own photos and clips beat made-up ones.") + `
+    <div class="panel" style="margin-bottom:16px"><h3 style="margin-top:0">Your keys</h3><div class="small muted" style="margin-bottom:10px">They live in this folder's .env and only ever go to their own service. Add a line, then reload this page.</div><div class="keys">${P.map(keyRow).join("")}</div></div>
     <div class="recipes">
+      ${card("captions", `<label>Your clip</label>${clips.length ? `<select id="m-cclip">${opts(clips)}</select>` : `<div class="small muted">Add a clip to the Library first.</div>`}<div class="small muted" style="margin-top:6px">The words are heard from the clip, a few at a time. A name can come out wrong: the .srt next to it is plain text to fix.</div>`)}
       ${card("video", `<label>Your photo</label>${photos.length ? `<select id="m-photo">${opts(photos)}</select>` : `<div class="small muted">Add a photo to the Library first.</div>`}<label>The motion</label><input type="text" id="m-motion" placeholder="a slow push-in, steam rising from the mug">`)}
-      ${card("voiceover", `<label>Your clip</label>${clips.length ? `<select id="m-clip">${opts(clips)}</select>` : `<div class="small muted">Add a clip to the Library first.</div>`}<label>Script (about 2.5 words a second)</label><textarea id="m-script" rows="3"></textarea><label>Voice id (optional)</label><input type="text" id="m-voice" placeholder="from .env if empty">`)}
+      ${card("edit", `<label>Your photo</label>${photos.length ? `<select id="m-ephoto">${opts(photos)}</select>` : `<div class="small muted">Add a photo to the Library first.</div>`}<label>What should change (only that)</label><input type="text" id="m-change" placeholder="put this screenshot on a phone lying on a wooden desk">`)}
+      ${card("voiceover", `<label>Your clip</label>${clips.length ? `<select id="m-clip">${opts(clips)}</select>` : `<div class="small muted">Add a clip to the Library first.</div>`}<label>Script (about 2.5 words a second)</label><textarea id="m-script" rows="3"></textarea><label>Voice (optional)</label><input type="text" id="m-voice" placeholder="ElevenLabs: your .env voice · OpenAI: alloy, nova, verse…">`)}
       ${card("image", `<label>What it shows</label><input type="text" id="m-prompt" placeholder="a printed worksheet on a wooden kitchen table, morning light"><label>Shape</label><select id="m-size"><option value="4:5">4:5 Instagram</option><option value="2:3">2:3 Pinterest</option><option value="1:1">1:1 square</option><option value="9:16">9:16 Reels, TikTok</option></select>`)}
+      ${card("stock", `<label>What you're looking for</label><div class="row"><input type="text" id="m-q" placeholder="coffee on a desk at night" style="flex:1"><select id="m-kind"><option value="0">Photos</option><option value="1">Clips</option></select><button id="m-search" ${K.pexels ? "" : "disabled"}>Search</button></div><div class="stock" id="m-results"></div>`, false)}
     </div>`;
+  $("#v-make").querySelectorAll("[data-via]").forEach((sel) => (sel.onchange = () => drawMake()));
   $("#v-make").querySelectorAll("[data-make]").forEach((b) => (b.onclick = async () => {
-    const id = b.dataset.make, out = $(`#out-${id}`);
-    const o = id === "video" ? { photo: $("#m-photo")?.value, motion: $("#m-motion").value } : id === "voiceover" ? { clip: $("#m-clip")?.value, script: $("#m-script").value, voice: $("#m-voice").value } : { prompt: $("#m-prompt").value, size: $("#m-size").value };
-    if (!confirm(`Make it? It costs ${R[id].cost}, paid to the service with your key.`)) return;
-    out.innerHTML = `<span class="spin"></span> Making…`;
-    try {
-      const r = await api("POST", "/api/make", { recipe: id, ...o });
-      const j = await waitJob(r.job);
-      out.textContent = j.state === "done" ? `Done: ${r.file}. It's in the Library.` : `It stopped:\n${(j.err || j.out).slice(-600)}`;
-      await load(false);
-    } catch (e) { out.textContent = e.message; }
+    const id = b.dataset.make, out = $(`#out-${id}`), via = pick(id);
+    const o = id === "video" ? { photo: $("#m-photo")?.value, motion: $("#m-motion").value }
+      : id === "voiceover" ? { clip: $("#m-clip")?.value, script: $("#m-script").value, voice: $("#m-voice").value }
+      : id === "captions" ? { clip: $("#m-cclip")?.value }
+      : id === "edit" ? { photo: $("#m-ephoto")?.value, change: $("#m-change").value }
+      : { prompt: $("#m-prompt").value, size: $("#m-size").value };
+    if (!confirm(`Make it? It costs ${R[id].via[via]}, paid to ${nameOf(via)} with your key.`)) return;
+    await runMake(id, { ...o, via }, out);
   }));
+  const search = $("#m-search");
+  if (search) search.onclick = async () => {
+    const box = $("#m-results"), videos = $("#m-kind").value === "1";
+    box.innerHTML = `<span class="spin"></span> Looking…`;
+    try {
+      const { items } = await api("GET", `/api/stock?q=${encodeURIComponent($("#m-q").value)}&videos=${videos ? 1 : 0}`);
+      box.innerHTML = items.length ? items.map((x) => `<button class="stock-item" data-id="${x.id}" data-video="${x.kind === "video" ? 1 : ""}" title="${esc(x.alt || "")} · by ${esc(x.by)}"><img src="${esc(x.preview)}" alt="${esc(x.alt || "")}" loading="lazy" referrerpolicy="no-referrer">${x.seconds ? `<span class="lib-badge">▶ ${x.seconds}s</span>` : ""}<span class="by">${esc(x.by)}</span></button>`).join("") : `<div class="small muted">Nothing found. Try other words.</div>`;
+      box.querySelectorAll(".stock-item").forEach((it) => (it.onclick = async () => {
+        if (!confirm(`Copy this ${it.dataset.video ? "clip" : "photo"} into your Library? It's free; the photographer is credited in library/INDEX.md.`)) return;
+        await runMake("stock", { id: it.dataset.id, video: !!it.dataset.video, via: "pexels" }, $("#out-stock"));
+      }));
+    } catch (e) { box.textContent = e.message; }
+  };
+}
+async function runMake(id, o, out) {
+  out.innerHTML = `<span class="spin"></span> Making…`;
+  try {
+    const r = await api("POST", "/api/make", { recipe: id, ...o });
+    const j = await waitJob(r.job);
+    out.textContent = j.state === "done" ? `Done${r.file ? `: ${r.file}` : ""}. It's in the Library.` : `It stopped:\n${(j.err || j.out).slice(-600)}`;
+    await load(false);
+  } catch (e) { out.textContent = e.message; }
 }
 
 // ---------- Library ----------

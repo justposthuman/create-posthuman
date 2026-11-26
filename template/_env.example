@@ -1,9 +1,22 @@
-# Copy to .env and fill in what you have. Your agent reads these here; they never go to Posthuman.
+# Copy to .env and fill in what you have. Your agent reads these here; each one only ever goes to its own service,
+# never to Posthuman. You don't need all of them: one is enough to start. Studio's Make page shows which you have.
 
-# fal.ai: images and video (fal.ai/dashboard/keys)
+# fal.ai: images and video, hundreds of models behind one key (fal.ai/dashboard/keys)
 FAL_KEY=
 
 # ElevenLabs: voiceovers and sound effects (elevenlabs.io → Developers → API keys)
 ELEVENLABS_API_KEY=
 # A voice you like (the tools/voice.mjs --list command shows yours)
 ELEVENLABS_VOICE_ID=
+
+# OpenAI: captions on clips (Whisper), images with words in them, voiceovers (platform.openai.com/api-keys)
+OPENAI_API_KEY=
+
+# Google Gemini: change a photo with words, "Nano Banana" (aistudio.google.com/apikey)
+GEMINI_API_KEY=
+
+# Pexels: free real stock photos and clips (pexels.com/api)
+PEXELS_API_KEY=
+
+# Replicate: any model on Replicate (replicate.com/account/api-tokens)
+REPLICATE_API_TOKEN=

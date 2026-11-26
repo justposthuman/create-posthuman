@@ -33,9 +33,14 @@ this week become real numbers, and **Bring in from your phone** pulls in what yo
 run Claude Code if you have it. Without it, the note is saved for your agent to pick up.
 
 ## Making media (optional)
-Copy `.env.example` to `.env` and add the keys you have:
-- `FAL_KEY` from fal.ai for images and video
-- `ELEVENLABS_API_KEY` from elevenlabs.io for voiceovers
+Copy `.env.example` to `.env` and add the keys you have (one is enough to start; Studio's **Make** page shows
+which you have and what each can do):
+- `OPENAI_API_KEY` (platform.openai.com): captions on your clips, images with words in them, voiceovers
+- `FAL_KEY` (fal.ai): images and video, hundreds of models
+- `ELEVENLABS_API_KEY` (elevenlabs.io): the most natural voiceovers, sound effects
+- `GEMINI_API_KEY` (aistudio.google.com): change a photo with words
+- `PEXELS_API_KEY` (pexels.com/api): free real stock photos and clips
+- `REPLICATE_API_TOKEN` (replicate.com): any model on Replicate
 
 Your keys stay in this folder. Your agent uses them from here, and Posthuman never sees them. Recipes are in
 `recipes/`. Each one says what it costs.

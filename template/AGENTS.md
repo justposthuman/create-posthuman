@@ -133,6 +133,8 @@ reaches the user too long. Funnier, never falser, and keep the payload. A flag t
 
 **Media.** Prefer the user's own photos and clips: moving a real photo or voicing a real clip looks like them; a
 picture made from nothing tends to look like everyone else's. Recipes are in `recipes/`, scripts in `tools/`.
+A clip with talking gets captions (`tools/captions.mjs`: most people watch with the sound off); a real stock photo
+(`tools/pexels.mjs`) beats a made-up one when theirs won't do, and is never passed off as something that happened.
 Everything made goes in `library/` and gets a line in `library/INDEX.md` (the scripts add it). Describe each
 picture in one sentence: it becomes the alt text. When a file goes into a post, add the post's file name to its
 *Used in* column (Studio does it when you add media there), so nothing gets posted twice by accident.
@@ -144,7 +146,9 @@ then `create_post` on a free time from the briefing. Write the `post_id` and the
 set `status: scheduled`. To change it later use `update_post` with that `post_id`, never cancel and make again.
 
 **Studio.** `node tools/studio.mjs` opens the week in the user's browser: they edit words, add pictures, and set a
-post to `approved` or `dropped`. `approved` means the user said yes: schedule it without asking again. A post with a
+post to `approved` or `dropped`. `approved` means the user said yes: schedule it without asking again. Studio is the
+workshop (drafts, voice, library, setups); once a post is scheduled it lives in Posthuman, and Studio's card opens
+it there. A change to a scheduled post: `update_post`, or the user edits it on the website. A post with a
 `# First draft` section is one the user edited: compare it with the words, save what the edit shows about the voice
 (brand/voice.md + `remember`), then remove that section. A `# Rewrite asked` section is a note for you: rewrite the
 words to match it, then remove the section. Per-account words written as `…same words… + #tag` mean the main words
@@ -194,7 +198,9 @@ lives in `brand/`; each other one has `brands/<name>/about.md` and `voice.md` (`
 - Commit to git when the user asks (this folder may be a git repo). `.env` is never committed.
 
 ## Money and keys
-- Making media costs real money on the user's fal / ElevenLabs account. Before a batch, say roughly what it costs
+- Making media costs real money on the user's own accounts (fal, ElevenLabs, OpenAI, Google, Replicate; Pexels is
+  free). `tools/providers.mjs` lists each service, its .env line, what it's for and roughly what it costs; use the
+  one they have a key for. Before a batch, say roughly what it costs
   (each recipe has prices) and get an OK when it's more than about a dollar.
 - Keys live in `.env` only. Never print them, paste them into a post, or send them anywhere except to the service
   they belong to. Posthuman never needs them.
