@@ -180,6 +180,18 @@ main { padding: 26px 28px 80px; min-width: 0; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .grid .tile { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); cursor: pointer; }
 .grid .tile img, .grid .tile video { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
+.lib-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); display: grid; grid-template-rows: auto 1fr; }
+.lib-media { position: relative; display: block; background: #111; aspect-ratio: 4 / 5; }
+.lib-media img, .lib-media video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.lib-media.audio { display: grid; place-items: center; font-size: 40px; background: var(--paper); color: var(--soft); }
+.lib-badge { position: absolute; left: 8px; bottom: 8px; background: rgb(0 0 0 / .65); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+.lib-body { padding: 10px 12px 12px; display: grid; gap: 6px; align-content: start; }
+.lib-alt { margin: 0; font-size: 13px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.lib-alt.none { color: var(--soft); font-style: italic; }
+.lib-meta { margin: 0; font-size: 11px; color: var(--soft); }
+.lib-meta b { color: var(--ink); font-weight: 600; }
+.lib-body button { justify-self: start; }
 .grid .tile .cap { font-size: 11px; padding: 4px 6px; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .grid .tile.audio { display: grid; place-items: center; aspect-ratio: 1; font-size: 26px; }
 
@@ -1131,16 +1143,39 @@ function drawMake() {
 // ---------- Library ----------
 
 function drawLibrary() {
-  $("#v-library").innerHTML = head("Library", "Everything made or dropped in, newest first. Click one to describe it: the description becomes its alt text.") + `
+  $("#v-library").innerHTML = head("Library", "Everything made or dropped in, newest first. Point at a clip to play it, click it to open full size. The description becomes its alt text.") + `
     <div class="drop" id="libDrop">Drop pictures, clips or audio here</div>
-    <div class="grid" style="margin-top:14px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${S.library.map(tile).join("")}</div>${S.library.length ? "" : `<p class="small muted">Nothing yet.</p>`}`;
+    <div class="lib-grid">${S.library.map(libCard).join("")}</div>${S.library.length ? "" : `<p class="small muted">Nothing yet.</p>`}`;
   dropZone($("#libDrop"), () => drawLibrary());
-  $("#v-library").querySelectorAll(".tile").forEach((t) => (t.onclick = async () => {
-    const x = S.library.find((y) => y.file === t.dataset.file);
+  // A clip shows its still (library/.thumbs), plays muted while the pointer is on it, and says how long it is.
+  $("#v-library").querySelectorAll(".lib-media video").forEach((v) => {
+    v.parentElement.onmouseenter = () => v.play().catch(() => {});
+    v.parentElement.onmouseleave = () => { v.pause(); };
+  });
+  $("#v-library").querySelectorAll("[data-describe]").forEach((t) => (t.onclick = async () => {
+    const x = S.library.find((y) => y.file === t.dataset.describe);
     const alt = prompt(`Describe ${x.file} in one sentence (alt text):`, x.alt || "");
     if (alt === null) return;
     await api("PUT", "/api/alt", { file: x.file, alt }); x.alt = alt; drawLibrary(); toast("Description saved");
   }));
+}
+
+/** One thing in the library: the picture or clip (opens full size), what it is, which posts use it. */
+function libCard(x) {
+  const src = media(x.file);
+  const mb = x.size ? `${(x.size / 1048576).toFixed(x.size < 10485760 ? 1 : 0)} MB` : "";
+  const shown = x.type === "video"
+    ? `<video src="${src}" ${x.poster ? `poster="${media(x.poster)}" preload="none"` : `preload="metadata"`} muted playsinline loop></video><span class="lib-badge">▶ ${x.duration ? `${Math.floor(x.duration / 60)}:${String(Math.round(x.duration % 60)).padStart(2, "0")}` : "video"}</span>`
+    : x.type === "audio" ? "♪" : `<img src="${src}" alt="${esc(x.alt)}" loading="lazy">`;
+  const used = (x.used_in || []).length ? `In <b>${x.used_in.map(esc).join("</b>, <b>")}</b>` : "Not in a post yet";
+  return `<div class="lib-card">
+    <a class="lib-media ${x.type === "audio" ? "audio" : ""}" href="${src}" target="_blank" rel="noopener" title="Open ${esc(x.file)} full size">${shown}</a>
+    <div class="lib-body">
+      <p class="lib-alt ${x.alt ? "" : "none"}" title="${esc(x.alt)}">${x.alt ? esc(x.alt) : "No description yet"}</p>
+      <p class="lib-meta">${used}<br>${esc(x.file)}${mb ? ` · ${mb}` : ""}</p>
+      <button class="ghost small" data-describe="${esc(x.file)}">${x.alt ? "Change description" : "Describe it"}</button>
+    </div>
+  </div>`;
 }
 
 function dropZone(el, done) {

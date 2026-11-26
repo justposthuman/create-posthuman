@@ -183,16 +183,36 @@ function libraryRows() {
     }
   return rows;
 }
+// A still and the length of each clip, made once with ffmpeg and kept in library/.thumbs/ (a clip's first frame is
+// often blank, and a page of 20 MB videos shouldn't have to load to show what they are). No ffmpeg: no still.
+const THUMBS = path.join(LIB, ".thumbs");
+function clipFacts(rel, full) {
+  const base = path.join(THUMBS, rel.replace(/[\\/]/g, "__"));
+  const jpg = `${base}.jpg`, facts = `${base}.json`;
+  const fresh = (f) => fs.existsSync(f) && fs.statSync(f).mtimeMs >= fs.statSync(full).mtimeMs;
+  if (!fresh(facts)) {
+    fs.mkdirSync(THUMBS, { recursive: true });
+    const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", full], { encoding: "utf8" });
+    if (probe.error) return {};
+    const duration = Number(probe.stdout.trim()) || 0;
+    spawnSync("ffmpeg", ["-v", "error", "-y", "-ss", String(Math.min(1, duration / 2)), "-i", full, "-frames:v", "1", "-vf", "scale=480:-2", jpg]);
+    fs.writeFileSync(facts, JSON.stringify({ duration }));
+  }
+  const { duration = 0 } = JSON.parse(fs.readFileSync(facts, "utf8"));
+  return { duration, poster: fs.existsSync(jpg) ? path.relative(LIB, jpg).split(path.sep).join("/") : "" };
+}
 function libraryView() {
   const rows = libraryRows();
   const files = [];
   const walk = (d) => {
     for (const e of fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : []) {
       const f = path.join(d, e.name);
+      if (e.name.startsWith(".")) continue; // .thumbs and other hidden things aren't library items
       if (e.isDirectory()) walk(f);
       else if (/\.(jpe?g|png|webp|gif|mp4|mov|mp3|wav|m4a)$/i.test(e.name)) {
         const rel = path.relative(LIB, f).split(path.sep).join("/");
-        files.push({ file: rel, type: typeOf(f).split("/")[0], alt: rows.get(rel)?.alt ?? "", made_with: rows.get(rel)?.made_with ?? "", size: fs.statSync(f).size, mtime: fs.statSync(f).mtimeMs });
+        const type = typeOf(f).split("/")[0];
+        files.push({ file: rel, type, ...(type === "video" ? clipFacts(rel, f) : {}), alt: rows.get(rel)?.alt ?? "", made_with: rows.get(rel)?.made_with ?? "", used_in: (rows.get(rel)?.used_in ?? "").split(/,\s*/).map((s) => s.replace(/\.md$/, "").trim()).filter(Boolean), size: fs.statSync(f).size, mtime: fs.statSync(f).mtimeMs });
       }
     }
   };
@@ -334,7 +354,17 @@ const server = http.createServer(async (req, res) => {
       if (u.searchParams.get("t") !== TOKEN) return send(res, 403, { error: "token" });
       const f = inLib(decodeURIComponent(u.pathname.slice(9)));
       if (!f) return send(res, 404, { error: "no such file" });
-      res.writeHead(200, { "Content-Type": typeOf(f), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+      // Ranges, so a clip can start playing (and skip ahead) before the whole file has come
+      const size = fs.statSync(f).size;
+      const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ""));
+      if (range && size) {
+        const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+        if (start > end || start >= size) { res.writeHead(416, { "Content-Range": `bytes */${size}` }); return res.end(); }
+        res.writeHead(206, { "Content-Type": typeOf(f), "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": end - start + 1, "Accept-Ranges": "bytes", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+        return fs.createReadStream(f, { start, end }).pipe(res);
+      }
+      res.writeHead(200, { "Content-Type": typeOf(f), "Content-Length": size, "Accept-Ranges": "bytes", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       return fs.createReadStream(f).pipe(res);
     }
     // A file from one of your own folders (brand/sources.md), for Your stuff. Only those folders, only media.
