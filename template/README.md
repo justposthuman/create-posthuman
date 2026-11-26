@@ -40,6 +40,8 @@ which you have and what each can do):
 - `ELEVENLABS_API_KEY` (elevenlabs.io): the most natural voiceovers, sound effects
 - `GEMINI_API_KEY` (aistudio.google.com): change a photo with words
 - `PEXELS_API_KEY` (pexels.com/api): free real stock photos and clips
+- `HF_API_KEY_ID` + `HF_API_KEY_SECRET` (console.higgsfield.ai): Higgsfield's cinematic video
+- `RUNWAYML_API_SECRET` (dev.runway.com) or `LUMA_API_KEY` (platform.lumalabs.ai): video from a photo or words
 - `REPLICATE_API_TOKEN` (replicate.com): any model on Replicate
 
 Your keys stay in this folder. Your agent uses them from here, and Posthuman never sees them. Recipes are in

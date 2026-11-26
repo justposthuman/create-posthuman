@@ -211,7 +211,7 @@ const SIZES = { "4:5": { width: 1080, height: 1350 }, "2:3": { width: 1000, heig
 // Each recipe: the services that can do it (in the order Studio offers them) and what each costs, roughly.
 export const RECIPES = {
   captions: { title: "Captions on your clip", via: { openai: "under 1¢ a minute (OpenAI Whisper)" } },
-  video: { title: "Photo → short video", via: { fal: "about 55¢ to $2 per 5 seconds (fal Kling 3 Pro)" } },
+  video: { title: "Photo → short video", via: { fal: "about 55¢ to $2 per 5 seconds (fal Kling 3 Pro)", runway: "about 25-50¢ per 5 seconds, roughly (Runway Gen-4 Turbo credits)", luma: "about 20-45¢ per 5 seconds, roughly (Luma Ray 3.2)" } },
   edit: { title: "Change a photo with words", via: { gemini: "about 4¢ (Google Nano Banana)", openai: "about 4-7¢ (OpenAI gpt-image-1)" } },
   voiceover: { title: "Voiceover on your clip", via: { elevenlabs: "a few cents (ElevenLabs, by characters)", openai: "about 1.5¢ a minute (OpenAI)" } },
   image: { title: "An image", via: { fal: "about 3¢ (fal FLUX.2 Pro)", openai: "about 4-7¢ (OpenAI gpt-image-1, good with words in it)", gemini: "about 4¢ (Google Nano Banana)" } },
@@ -281,6 +281,9 @@ export function make(recipe, o) {
     if (!inLibRel(o.photo) || !/\.(jpe?g|png|webp)$/i.test(o.photo)) throw new Error("Pick one of your photos from the library.");
     const motion = String(o.motion || "").trim() || "a slow push-in";
     const file = out("mp4", path.basename(o.photo).replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/\.\w+$/, ""));
+    const what = o.alt || `${path.basename(o.photo)}, moving: ${motion}`;
+    if (via === "runway") return { job: runSteps("make", [[node, ["tools/runway.mjs", "video", `library/${o.photo}`, `${motion}, everything else in the photo stays as it is`, "--out", file, "--what", what]]]), file };
+    if (via === "luma") return { job: runSteps("make", [[node, ["tools/luma.mjs", "video", `library/${o.photo}`, `${motion}, everything else in the photo stays as it is`, "--out", file, "--what", what]]]), file };
     const input = { prompt: `${motion}, everything else in the photo stays as it is`, duration: "5" };
     return { job: runSteps("make", [[node, ["tools/fal.mjs", "fal-ai/kling-video/v3/pro/image-to-video", "--file", `image_url=library/${o.photo}`, "--input", JSON.stringify(input), "--out", file, "--what", o.alt || `${path.basename(o.photo)}, moving: ${motion}`]]]), file };
   }

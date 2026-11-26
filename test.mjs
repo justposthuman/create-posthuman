@@ -79,10 +79,21 @@ ok(r.status === 0 && JSON.parse(r.stdout).post.includes("/from-env?"), "the voic
   ok(d.post?.endsWith("/models/black-forest-labs/flux-1.1-pro/predictions") && d.input?.prompt === "a desk", "replicate: a model by name");
   d = J(["tools/replicate.mjs", "owner/m:abc123", "--file", "image=library/test.png", "--out", "library/r.mp4", "--dry"]);
   ok(d.post?.endsWith("/predictions") && d.version === "abc123" && /^data:image\/png;base64,/.test(d.input?.image), "…or a pinned version, with a local file");
+  d = J(["tools/higgsfield.mjs", "higgsfield/cinema-studio/4.0", "--input", '{"prompt":"a slow dolly-in"}', "--out", "library/h.mp4", "--dry"]);
+  ok(d.post === "https://api.higgsfield.ai/higgsfield/cinema-studio/4.0" && d.input?.prompt === "a slow dolly-in", "higgsfield: a model by its endpoint id");
+  d = J(["tools/runway.mjs", "video", "library/test.png", "slow push-in", "--out", "library/rw.mp4", "--dry"]);
+  ok(d.post === "https://api.dev.runwayml.com/v1/image_to_video" && d.version === "2024-11-06" && d.body?.model === "gen4_turbo" && d.body.ratio === "720:1280" && d.body.duration === 5 && /^data:image\/png/.test(d.body.promptImage), "runway: a photo that moves, vertical, Gen-4 Turbo");
+  const RW = await import(path.join(dir, "tools/runway.mjs"));
+  ok(RW.runwayRequest("video", { image: "https://x/p.png", prompt: "p", model: "gen4.5" }).body.promptImage[0].position === "first" && RW.runwayRequest("text-video", { prompt: "p" }).path === "/v1/text_to_video" && RW.runwayRequest("image", { prompt: "p" }).body.model === "gen4_image", "…gen4.5 takes the photo as a list; words-only video and images too");
+  d = J(["tools/luma.mjs", "video", "library/test.png", "slow push-in", "--out", "library/lu.mp4", "--dry"]);
+  ok(d.post === "https://agents.lumalabs.ai/v1/generations" && d.body?.model === "ray-3.2" && d.body.type === "video" && d.body.aspect_ratio === "9:16" && d.body.video.duration === "5s" && d.body.video.start_frame?.media_type === "image/png", "luma: a photo that moves (Ray 3.2, 9:16, 5 s)");
+  const LU = await import(path.join(dir, "tools/luma.mjs"));
+  ok(LU.lumaRequest("video", { prompt: "p", frame: { url: "https://x" }, seconds: 10 }).video.duration === "5s" && LU.lumaRequest("text-video", { prompt: "p", seconds: 10 }).video.duration === "10s", "…10 seconds only without a starting photo (Luma's rule)");
   const PV = await import(path.join(dir, "tools/providers.mjs"));
+  ok(PV.keysWith((n) => (n === "HF_API_KEY_ID" ? "x" : "")).higgsfield === false && PV.keysWith((n) => (n.startsWith("HF_") ? "x" : "")).higgsfield === true, "…which needs both its key id and its secret");
   ok(PV.whoCan("captions")[0].id === "openai" && PV.whoCan("edit", { openai: true })[0].id === "openai" && PV.PROVIDERS.every((p) => /^https:\/\//.test(p.get) && p.env), "providers: every service says its .env line and where to get a key");
   const envNow = fs.readFileSync(path.join(dir, ".env.example"), "utf8");
-  ok(PV.PROVIDERS.every((p) => envNow.includes(`${p.env}=`)), "…and .env.example has a line for each");
+  ok(PV.PROVIDERS.every((p) => [p.env, ...(p.also ?? [])].every((e) => envNow.includes(`${e}=`))), "…and .env.example has a line for each");
 }
 
 if (haveFf) {
@@ -476,7 +487,7 @@ try {
   const stk = await fetch(base + "/api/stock?q=coffee", { headers: h });
   ok(stk.status === 400 && /PEXELS_API_KEY/.test((await stk.json()).error), "…and stock search says PEXELS_API_KEY");
   const stS = await (await fetch(base + "/api/state", { headers: h })).json();
-  ok(stS.providers.length === 6 && "openai" in stS.keys && stS.recipes.captions.via.openai, "studio: the page gets every service, which have keys, and what each recipe can use");
+  ok(stS.providers.length === 9 && "openai" in stS.keys && stS.recipes.captions.via.openai, "studio: the page gets every service, which have keys, and what each recipe can use");
 } finally {
   srv.kill();
 }

@@ -15,6 +15,8 @@ page (fal.ai/models → the model → API) and update the recipe.
 - `node tools/openai.mjs speak "…"`: a voiceover without ElevenLabs (about 1.5¢ a minute; then `tools/mix.mjs` onto the clip)
 - `node tools/pexels.mjs search "…"` then `get <id>`: a free real stock photo or clip, photographer credited in library/INDEX.md (Pexels)
 - `node tools/replicate.mjs owner/model --input '{…}'`: any model on Replicate, like `tools/fal.mjs` for fal
+- `node tools/runway.mjs video library/photo.jpg "the motion"` / `node tools/luma.mjs video …`: a photo that moves, on Runway (Gen-4) or Luma (Ray), for people who already pay for one
+- `node tools/higgsfield.mjs higgsfield/cinema-studio/4.0 --input '{"prompt":"…"}'`: Higgsfield's cinematic video (each model's endpoint id is on docs.higgsfield.ai)
 - `node tools/vertical.mjs library/clip.mp4`: a wide clip or photo made to fit Reels, TikTok and Shorts (9:16) or an Instagram picture (`--size 4:5`), the whole picture kept over a blurred copy of itself (free, ffmpeg)
 
 Write your own: copy one, keep the same parts (Needs · Costs · Steps · Watch out), and add it to this list.

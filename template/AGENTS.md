@@ -198,7 +198,7 @@ lives in `brand/`; each other one has `brands/<name>/about.md` and `voice.md` (`
 - Commit to git when the user asks (this folder may be a git repo). `.env` is never committed.
 
 ## Money and keys
-- Making media costs real money on the user's own accounts (fal, ElevenLabs, OpenAI, Google, Replicate; Pexels is
+- Making media costs real money on the user's own accounts (fal, ElevenLabs, OpenAI, Google, Higgsfield, Runway, Luma, Replicate; Pexels is
   free). `tools/providers.mjs` lists each service, its .env line, what it's for and roughly what it costs; use the
   one they have a key for. Before a batch, say roughly what it costs
   (each recipe has prices) and get an OK when it's more than about a dollar.

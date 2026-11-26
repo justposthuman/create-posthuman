@@ -17,7 +17,7 @@ node tools/studio.mjs
 ```
 
 - **Your agent does the creative work here.** It writes in your voice, keeps the ideas inbox, and makes media with
-  your own keys: fal, ElevenLabs, OpenAI, Google Gemini, Pexels or Replicate (captions on clips, photo edits, free
+  your own keys: fal, ElevenLabs, OpenAI, Google Gemini, Higgsfield, Runway, Luma, Pexels or Replicate (captions on clips, photo edits, free
   stock photos, voiceovers, images and video).
 - **Posthuman only posts.** Your keys never leave this folder.
 - **It learns as it goes.** Your edits and the posts that did well become lines in `brand/voice.md`. A short version

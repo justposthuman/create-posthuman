@@ -3,7 +3,7 @@
 // service's own pricing page is the truth.
 //
 //   id          what the tools and Studio call it
-//   env         the .env line it needs (extra: optional lines that help)
+//   env         the .env line it needs (also: more lines it needs too; extra: optional lines that help)
 //   get         where to make a key
 //   jobs        what it's good for here: image, edit, video, voiceover, sound, captions, stock
 //   tool        the script in tools/ that talks to it
@@ -14,6 +14,9 @@ export const PROVIDERS = [
   { id: "openai", name: "OpenAI", env: "OPENAI_API_KEY", get: "https://platform.openai.com/api-keys", jobs: ["captions", "image", "edit", "voiceover"], tool: "openai.mjs", note: "Captions for clips (Whisper), images with readable words in them, voiceovers." },
   { id: "gemini", name: "Google Gemini", env: "GEMINI_API_KEY", get: "https://aistudio.google.com/apikey", jobs: ["edit", "image"], tool: "gemini.mjs", note: "Photo edits from a sentence (Nano Banana): your screenshot on a phone, a new background." },
   { id: "pexels", name: "Pexels", env: "PEXELS_API_KEY", get: "https://www.pexels.com/api/", jobs: ["stock"], tool: "pexels.mjs", note: "Free real photos and clips (credit the photographer). Real beats made-up." },
+  { id: "higgsfield", name: "Higgsfield", env: "HF_API_KEY_ID", also: ["HF_API_KEY_SECRET"], get: "https://console.higgsfield.ai", jobs: ["video", "image"], tool: "higgsfield.mjs", note: "Cinematic video and camera moves (Cinema Studio), plus Kling, Hailuo, Wan, Soul. The API is billed apart from a Higgsfield plan." },
+  { id: "runway", name: "Runway", env: "RUNWAYML_API_SECRET", get: "https://dev.runway.com", jobs: ["video", "image"], tool: "runway.mjs", note: "Gen-4 video from a photo or words (also Veo, Seedance, Kling on its credits). The API has its own credits." },
+  { id: "luma", name: "Luma", env: "LUMA_API_KEY", get: "https://platform.lumalabs.ai", jobs: ["video", "image"], tool: "luma.mjs", note: "Ray video: smooth, real-looking motion from a photo or words." },
   { id: "replicate", name: "Replicate", env: "REPLICATE_API_TOKEN", get: "https://replicate.com/account/api-tokens", jobs: ["image", "video", "edit"], tool: "replicate.mjs", note: "Any model on Replicate, for people whose models live there." },
 ];
 
@@ -28,7 +31,7 @@ export const JOBS = {
 };
 
 /** Which services have a key: { fal: true, openai: false, … } (read with lib.mjs key()). */
-export const keysWith = (key) => Object.fromEntries(PROVIDERS.map((p) => [p.id, !!key(p.env)]));
+export const keysWith = (key) => Object.fromEntries(PROVIDERS.map((p) => [p.id, [p.env, ...(p.also ?? [])].every((e) => !!key(e))]));
 
 /** The services that can do a job, the ones with a key first. */
 export const whoCan = (job, have = {}) => PROVIDERS.filter((p) => p.jobs.includes(job)).sort((a, b) => Number(!!have[b.id]) - Number(!!have[a.id]));

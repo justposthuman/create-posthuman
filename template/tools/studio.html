@@ -1143,7 +1143,7 @@ function drawMake() {
   const clips = S.library.filter((x) => /\.(mp4|mov)$/i.test(x.file));
   const opts = (xs) => xs.map((x) => `<option value="${esc(x.file)}">${esc(x.alt || x.file)}</option>`).join("");
   const nameOf = (id) => P.find((p) => p.id === id)?.name || id;
-  const addLine = (id) => { const p = P.find((x) => x.id === id); return p ? `Add ${p.env} to .env (get one at ${p.get.replace(/^https:\/\//, "")}).` : ""; };
+  const addLine = (id) => { const p = P.find((x) => x.id === id); return p ? `Add ${[p.env, ...(p.also || [])].join(" and ")} to .env (get one at ${p.get.replace(/^https:\/\//, "")}).` : ""; };
   // Which service each card uses: the one picked, else the first one with a key.
   const pick = (id) => { const via = Object.keys(R[id]?.via || {}); const chosen = $(`#via-${id}`)?.value; return via.includes(chosen) ? chosen : via.find((v) => K[v]) || via[0]; };
   const viaSelect = (id) => {
@@ -1155,7 +1155,7 @@ function drawMake() {
     const v = pick(id);
     return `<div class="panel recipe" id="r-${id}"><h3>${esc(R[id]?.title || id)}</h3><div class="cost" id="cost-${id}">${esc(R[id]?.via?.[v] || "")}${/^free/.test(R[id]?.via?.[v] || "") ? "" : " · paid to the service with your key"}</div>${K[v] ? "" : `<div class="needkey">${esc(addLine(v))}</div>`}${viaSelect(id)}${body}${button ? `<button class="lit" data-make="${id}" style="margin-top:12px" ${K[v] ? "" : "disabled"}>Make it</button>` : ""}<pre class="small" id="out-${id}" style="white-space:pre-wrap"></pre></div>`;
   };
-  const keyRow = (p) => `<div class="keyrow ${K[p.id] ? "on" : ""}"><b>${esc(p.name)}</b>${K[p.id] ? `<span class="pill inph">added</span>` : `<a href="${esc(p.get)}" target="_blank" rel="noopener" class="small">get a key ↗</a>`}<div class="small muted">${esc(p.note)}</div>${K[p.id] ? "" : `<div class="small"><code>${esc(p.env)}=</code> in .env</div>`}</div>`;
+  const keyRow = (p) => `<div class="keyrow ${K[p.id] ? "on" : ""}"><b>${esc(p.name)}</b>${K[p.id] ? `<span class="pill inph">added</span>` : `<a href="${esc(p.get)}" target="_blank" rel="noopener" class="small">get a key ↗</a>`}<div class="small muted">${esc(p.note)}</div>${K[p.id] ? "" : `<div class="small">${[p.env, ...(p.also || [])].map((e) => `<code>${esc(e)}=</code>`).join(" ")} in .env</div>`}</div>`;
   $("#v-make").innerHTML = head("Make", "Pictures, clips, captions and voiceovers, made on your computer with your own keys. Everything lands in the Library. Your own photos and clips beat made-up ones.") + `
     <div class="panel" style="margin-bottom:16px"><h3 style="margin-top:0">Your keys</h3><div class="small muted" style="margin-bottom:10px">They live in this folder's .env and only ever go to their own service. Add a line, then reload this page.</div><div class="keys">${P.map(keyRow).join("")}</div></div>
     <div class="recipes">

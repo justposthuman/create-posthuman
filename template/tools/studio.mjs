@@ -386,7 +386,7 @@ const server = http.createServer(async (req, res) => {
           const a = aboutView();
           const judged = parsePast().filter((x) => x.verdict && x.verdict !== "skip").length;
           return { todo: [!a.what_it_is && judged < 5, !a.goals, judged < 5].filter(Boolean).length };
-        })(), brand: brandName(), posts: postFiles().map(postView), library: libraryView(), ideas: ideas(), agent: hasClaude ? "claude" : null, keys: keys(), recipes: RECIPES, providers: PROVIDERS.map(({ id, name, env, get, jobs, note }) => ({ id, name, env, get, jobs, note })), jobs: JOBS, week: weekOf() });
+        })(), brand: brandName(), posts: postFiles().map(postView), library: libraryView(), ideas: ideas(), agent: hasClaude ? "claude" : null, keys: keys(), recipes: RECIPES, providers: PROVIDERS.map(({ id, name, env, also, get, jobs, note }) => ({ id, name, env, also: also ?? [], get, jobs, note })), jobs: JOBS, week: weekOf() });
 
     const json = async () => JSON.parse((await body(req)).toString() || "{}");
     const noAgent = () => send(res, 400, { error: "This needs Claude Code installed on this computer (claude). Or open your agent in this folder and ask it." });
