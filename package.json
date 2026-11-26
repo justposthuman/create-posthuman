@@ -1,6 +1,6 @@
 {
   "name": "create-posthuman",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A starter folder for your own AI agent: your brand's voice, ideas, media and recipes on your computer, posted through Posthuman.",
   "type": "module",
   "bin": {

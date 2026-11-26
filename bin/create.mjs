@@ -65,7 +65,7 @@ Next:
   2. Open your agent here:
        Claude Code:  claude          (then /mcp and sign in to Posthuman)
        Codex:        codex mcp add posthuman --url ${url}/api/mcp   then: codex
-  3. Say: "set up my brand". It asks you a few questions and fills in brand/.
+  3. Say: "get to know me". It asks you a few questions and fills in brand/.
 
 Optional: copy .env.example to .env and add your fal / ElevenLabs keys for making media.
 Your keys stay in this folder; Posthuman never sees them.

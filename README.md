@@ -7,7 +7,7 @@ files, so every chat starts knowing what the last one learned. Posts go out thro
 npx create-posthuman my-brand
 cd my-brand
 claude            # or codex, or any agent that reads AGENTS.md
-> set up my brand
+> get to know me
 ```
 
 Or open Studio, the folder's own page on your computer, and start with **Get to know you**:
