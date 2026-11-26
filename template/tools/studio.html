@@ -518,7 +518,7 @@ function drawCounts() {
   $("#counts-line").innerHTML = accts.map((a) => {
     const pf = platformOf(a);
     if (lengthsFor) {
-      const l = lengthsFor(a, resolved(a), { media: open.media.length });
+      const l = lengthsFor(a, resolved(a), { media: open.media.length, max: setupFor ? setupFor(a, S.accounts?.accounts || [])?.max : 0 });
       if (l.length) {
         const worst = l.reduce((m, x) => (x.length - x.limit > m.length - m.limit ? x : m));
         return `<span class="count ${worst.length > worst.limit ? "over" : ""}" title="${esc(a)}${worst.part ? `: part ${worst.part}` : ""}">${esc(pf.name)} ${worst.length}/${worst.limit}</span>`;

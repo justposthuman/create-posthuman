@@ -163,6 +163,23 @@ const acctFile = AR.writeAccounts([
 ], { url: "https://example.test" });
 const accts = AR.parseAccounts(acctFile);
 ok(accts.length === 3 && accts[0].account_id === 3 && accts[0].setup.never.join("|") === "hashtags|naming my day job, Acme" && accts[0].setup.like_this === "One line that's so me" && accts[2].setup === null, "accounts: the briefing's setups written and read back (no's kept whole, not yet = none)");
+// X Premium: the briefing's max_characters is kept as "- longest post:" and the length check uses it
+{
+  const AR3 = await import(path.join(dir, "tools/account-rules.mjs"));
+  const LR3 = await import(path.join(dir, "tools/length-rules.mjs"));
+  const md = AR3.writeAccounts([{ account_id: 6, account: "X @me", setup: "not yet", past_posts: 40, max_characters: 25000 }, { account_id: 7, account: "X @other", setup: "not yet", past_posts: 3 }]);
+  const back = AR3.parseAccounts(md);
+  ok(md.includes("- longest post: 25000") && back[0].max === 25000 && !back[1].max, "accounts: a long-post account keeps its longest post (X Premium), others don't get one");
+  const long = "word ".repeat(120).trim();
+  ok(LR3.lengthCheck("X @me", long, { max: back[0].max }).length === 0 && LR3.lengthCheck("X @other", long, { max: back[1].max }).length === 1, "length: X Premium takes a long post; plain X still says 280");
+  const saved = fs.readFileSync(path.join(dir, "brand/accounts.md"), "utf8");
+  fs.writeFileSync(path.join(dir, "brand/accounts.md"), md);
+  fs.writeFileSync(path.join(dir, "posts/2026-11-30-long.md"), `---\nstatus: draft\naccounts: [X @me, X @other]\n---\n\n# Words\n\n## Everywhere\n${long}\n\nWhat do you think?\n`);
+  const hl = run("node", ["tools/humanize.mjs", "posts/2026-11-30-long.md"], dir).stdout;
+  ok(/X @other: it's \d+ characters; X takes 280/.test(hl) && !/X @me:/.test(hl), "humanize: the long post is fine on the Premium account, too long on the other");
+  fs.rmSync(path.join(dir, "posts/2026-11-30-long.md"));
+  fs.writeFileSync(path.join(dir, "brand/accounts.md"), saved);
+}
 ok(AR.setupFor("x @shop", accts)?.account_id === 3 && AR.setupFor("Mastodon", accts)?.account_id === 4 && AR.setupFor("Bluesky", accts)?.account_id === 5 && AR.setupFor("TikTok @else", accts) === null, "accounts: a post's account line finds its setup");
 const fc = (w, i = 0) => AR.fitCheck(accts[i].setup, w).map((x) => x.issue);
 ok(fc("ship it #buildinpublic").some((x) => /hashtags/.test(x)) && fc("long day at Acme").some((x) => /Acme/.test(x)) && fc("long day at acmeish") .length === 0 && fc("plain words").length === 0, "fit check: hashtags and never-named words flagged, whole words only");

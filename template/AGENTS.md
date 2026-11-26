@@ -16,7 +16,8 @@ schedules and posts what you and the user agree on.
    account's notes that isn't in `brand/voice.md` yet: add it there. Refresh `brand/accounts.md` from each
    account's `setup` (one `## <account>` heading each, then `- account_id:`, `- who reads it:`, `- sounds:`,
    `- what goes here:`, `- how often:`, `- never:` with `; ` between, `- like this:`; or `- not yet`; and
-   `- posts so far:` with the account's `past_posts` number, 0 when the briefing shows none). Studio's
+   `- posts so far:` with the account's `past_posts` number, 0 when the briefing shows none; and `- longest post:`
+   with its `max_characters` when the briefing gives one, like an X account with Premium that takes long posts). Studio's
    **Accounts → Refresh** does the same. Then **About you**: Posthuman's `about_you` is the short profile the
    user's phone and other chats read; `brand/about.md` is the detail. Fill empty sections here from it, and when this
    folder knows more (what it is, who it's for, Topics, Goals, Links), send it with `set_about` in the user's own

@@ -4,6 +4,8 @@
 //
 // Thread platforms (X, Bluesky, Mastodon, Threads) post each --- part under the one before, so each part has to fit.
 // Everywhere else the parts go out as one post, so the whole thing has to fit.
+// Some accounts take more than their platform usually does (X with Premium: 25,000). Posthuman's briefing says so
+// (max_characters), brand/accounts.md keeps it as "- longest post:", and the callers pass it here as { max }.
 
 export const PLATFORMS = [
   { id: "x", re: /^x\b|^twitter\b/i, name: "X", limit: 280, thread: true, count: "x" },
@@ -55,10 +57,10 @@ export function lengthOn(platform, text) {
 const split = (t) => String(t ?? "").split(/\n-{3}[ \t]*(?:\n|$)/).map((s) => s.trim()).filter(Boolean);
 
 /** [{ part, length, limit }] for one account's words: each part on a thread platform, the whole post elsewhere. */
-export function lengthsFor(account, words, { media = 0 } = {}) {
+export function lengthsFor(account, words, { media = 0, max = 0 } = {}) {
   const p = platformOf(account);
   if (!p) return [];
-  const limit = media && p.withMedia ? p.withMedia : p.limit;
+  const limit = Number(max) > 0 ? Number(max) : media && p.withMedia ? p.withMedia : p.limit;
   const parts = split(words);
   if (p.thread) return parts.map((t, i) => ({ part: parts.length > 1 ? i + 1 : 0, length: lengthOn(p, t), limit }));
   return [{ part: 0, length: lengthOn(p, parts.join("\n\n")), limit }];

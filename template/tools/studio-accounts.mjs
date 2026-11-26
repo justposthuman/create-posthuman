@@ -51,7 +51,7 @@ export const accountsView = () => {
 export function refreshAccounts() {
   const prompt =
     "Call the posthuman briefing tool. Reply with ONLY a JSON array, nothing else: one object per account in the briefing, " +
-    '{"account_id": its account_id, "account": its account name exactly as the briefing says it, "setup": its setup object exactly as given, or the string "not yet", "past_posts": its past_posts number, or 0 when the briefing shows none}. ' +
+    '{"account_id": its account_id, "account": its account name exactly as the briefing says it, "setup": its setup object exactly as given, or the string "not yet", "past_posts": its past_posts number, or 0 when the briefing shows none, "max_characters": its max_characters number only when the briefing gives one (an X account with Premium), else leave it out}. ' +
     "If Posthuman isn't connected, reply with exactly: NOT CONNECTED";
   return runAgent("accounts", prompt, [...mcpConfig(), "--allowedTools", ...POSTHUMAN_READ, "--disallowedTools", "Bash", "Edit", "Write"], {
     onDone(job) {

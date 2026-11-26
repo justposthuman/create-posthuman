@@ -60,7 +60,8 @@ export function checkPost(file, { root = ROOT } = {}) {
   }
   for (const acct of listOf(p.front.accounts)) {
     const w = wordsFor(p, acct);
-    for (const f of [...lengthCheck(acct, w, { media }), ...fitCheck(setupFor(acct, accts)?.setup, w)]) out.push({ where: acct, tell: f.issue, found: [], fix: f.fix });
+    const known = setupFor(acct, accts);
+    for (const f of [...lengthCheck(acct, w, { media, max: known?.max }), ...fitCheck(known?.setup, w)]) out.push({ where: acct, tell: f.issue, found: [], fix: f.fix });
   }
   return out;
 }

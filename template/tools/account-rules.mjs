@@ -12,8 +12,9 @@
 //   - never: hashtags; naming my day job, Acme
 //   - like this: Day 3 of building after the kids go to bed…
 //   - posts so far: 46        (how many past posts Posthuman has for it; 0 = a brand-new account, see introFor)
+//   - longest post: 25000     (only when this account takes more than its platform usually does: X with Premium)
 
-const KEYS = { account_id: "account_id", "posts so far": "posts", "who reads it": "who_reads_it", sounds: "sounds", "what goes here": "what_goes_here", "how often": "how_often", never: "never", "like this": "like_this" };
+const KEYS = { account_id: "account_id", "posts so far": "posts", "longest post": "max", "who reads it": "who_reads_it", sounds: "sounds", "what goes here": "what_goes_here", "how often": "how_often", never: "never", "like this": "like_this" };
 
 export function parseAccounts(text = "") {
   const out = [];
@@ -35,6 +36,7 @@ export function parseAccounts(text = "") {
     if (!k) continue;
     if (k === "account_id") cur.account_id = Number(kv[2]) || null;
     else if (k === "posts") cur.posts = /^\d+$/.test(kv[2].trim()) ? Number(kv[2]) : null;
+    else if (k === "max") cur.max = Number(kv[2].replace(/[,_\s]/g, "")) || null;
     else if (/^not yet/i.test(kv[2])) continue;
     else {
       cur.setup ??= {};
@@ -53,6 +55,7 @@ export function writeAccounts(accounts, { url = "", now = new Date() } = {}) {
       `## ${line(a.account)}`,
       a.account_id ? `- account_id: ${a.account_id}` : "",
       Number.isInteger(a.past_posts ?? a.posts) ? `- posts so far: ${a.past_posts ?? a.posts}` : "",
+      Number(a.max_characters ?? a.max) > 0 ? `- longest post: ${Number(a.max_characters ?? a.max)}` : "",
       ...(s
         ? [
             s.who_reads_it && `- who reads it: ${line(s.who_reads_it)}`,

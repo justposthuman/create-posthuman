@@ -115,7 +115,7 @@ function postView(file) {
     // Each account's hard no's (brand/accounts.md).
     fits: list(p.front.accounts).map((acct) => ({ account: acct, issues: fitCheck(setupFor(acct, ACCTS())?.setup, wordsFor(p, acct)) })).filter((f) => f.issues.length),
     // Too long for its platform (each part of a thread on X, Bluesky, Mastodon, Threads).
-    long: list(p.front.accounts).map((acct) => ({ account: acct, issues: lengthCheck(acct, wordsFor(p, acct), { media: list(p.front.media).length }) })).filter((f) => f.issues.length),
+    long: list(p.front.accounts).map((acct) => ({ account: acct, issues: lengthCheck(acct, wordsFor(p, acct), { media: list(p.front.media).length, max: setupFor(acct, ACCTS())?.max }) })).filter((f) => f.issues.length),
     first_draft: p.other.find((s) => s.title === "First draft")?.text ?? null,
     rewrite_asked: p.other.find((s) => s.title === "Rewrite asked")?.text ?? null,
     other: p.other.filter((s) => !["Notes", "First draft", "Rewrite asked"].includes(s.title)),
@@ -264,7 +264,7 @@ function rewritePrompt(slug, note, humanize) {
   const voice = readIf(brandFile(brand, "voice.md", ROOT));
   const setups = p.accounts.map((a) => ({ a, s: setupFor(a, ACCTS())?.setup })).filter((x) => x.s);
   // the tightest limit among its accounts (each part of a thread on X, Bluesky, Mastodon, Threads)
-  const limits = p.accounts.map((a) => lengthsFor(a, "x")[0]?.limit).filter(Boolean);
+  const limits = p.accounts.map((a) => lengthsFor(a, "x", { max: setupFor(a, ACCTS())?.max })[0]?.limit).filter(Boolean);
   return [
     "Rewrite one social post. Reply with ONLY the new words of the post: no preamble, no quotes, no explanation.",
     `If it's a thread, keep a line holding only --- between the parts.${limits.length ? ` Each part must fit ${Math.min(...limits)} characters.` : ""}`,
