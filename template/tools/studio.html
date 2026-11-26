@@ -1203,21 +1203,78 @@ async function runMake(id, o, out) {
 
 // ---------- Library ----------
 
+// Filters: brand (library/<brand-folder>/…, or the brand of the post a loose file is in), kind, folder, used or not,
+// and words in the name or description. Only a page at a time is drawn, so a library of hundreds stays quick.
+const LIB_PAGE = 60;
+const LIB = (() => { const d = { brand: "*", type: "*", folder: "*", used: "*", q: "" }; try { return { ...d, ...JSON.parse(localStorage.getItem("studio-lib") || "{}"), shown: LIB_PAGE }; } catch { return { ...d, shown: LIB_PAGE }; } })();
+const libSave = () => { try { const { shown, ...keep } = LIB; localStorage.setItem("studio-lib", JSON.stringify(keep)); } catch {} };
+const slugish = (s = "") => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// A brand's own folder in library/: its slug (brands/<slug>), or the main brand's name ("wilcodes").
+const isBrandDir = (seg) => (S.brands || []).find((b) => (b.slug ? b.slug === seg : slugish(b.name) === seg));
+function libBrand(x) {
+  const seg = x.file.includes("/") ? x.file.split("/")[0] : "";
+  const b = seg && isBrandDir(seg);
+  if (b) return b.slug;
+  const post = (x.used_in || []).map((u) => S.posts.find((p) => p.slug === u)).find(Boolean);
+  return post ? post.brand || "" : "";
+}
+// The folder under the brand's own folder ("pins", "posthuman"), or "" for a file sitting right in it.
+function libFolder(x) {
+  const parts = x.file.split("/").slice(0, -1);
+  if (parts.length && isBrandDir(parts[0])) parts.shift();
+  return parts.join("/");
+}
+const libKinds = { image: "Pictures", video: "Clips", audio: "Audio" };
+const libUsed = (x) => (x.used_in || []).length > 0;
+function libMatches(x, skip = "") {
+  const q = LIB.q.trim().toLowerCase();
+  return (skip === "brand" || LIB.brand === "*" || libBrand(x) === LIB.brand)
+    && (skip === "type" || LIB.type === "*" || x.type === LIB.type)
+    && (skip === "folder" || LIB.folder === "*" || libFolder(x) === LIB.folder)
+    && (skip === "used" || LIB.used === "*" || (LIB.used === "unused" ? !libUsed(x) : libUsed(x)))
+    && (!q || `${x.file} ${x.alt}`.toLowerCase().includes(q));
+}
 function drawLibrary() {
+  const many = (S.brands || []).length > 1;
+  if (LIB.brand !== "*" && !(S.brands || []).some((b) => b.slug === LIB.brand)) LIB.brand = "*";
+  const folders = [...new Set(S.library.filter((x) => libMatches(x, "folder")).map(libFolder))].sort();
+  if (LIB.folder !== "*" && !folders.includes(LIB.folder)) LIB.folder = "*";
+  // Each choice says how many it would show, given the other filters.
+  const n = (skip, test) => S.library.filter((x) => libMatches(x, skip) && test(x)).length;
+  const opt = (val, label, cur, count) => `<option value="${esc(val)}" ${cur === val ? "selected" : ""}>${esc(label)}${count === undefined ? "" : ` (${count})`}</option>`;
   $("#v-library").innerHTML = head("Library", "Everything made or dropped in, newest first. Point at a clip to play it, click it to open full size. The description becomes its alt text.") + `
     <div class="drop" id="libDrop">Drop pictures, clips or audio here</div>
-    <div class="lib-grid">${S.library.map(libCard).join("")}</div>${S.library.length ? "" : `<p class="small muted">Nothing yet.</p>`}`;
+    <div class="row" style="margin-top:14px">
+      ${many ? `<select data-lib="brand" aria-label="Brand">${opt("*", "All brands", LIB.brand, n("brand", () => true))}${S.brands.map((b) => opt(b.slug, b.name, LIB.brand, n("brand", (x) => libBrand(x) === b.slug))).join("")}</select>` : ""}
+      <select data-lib="type" aria-label="Kind">${opt("*", "Everything", LIB.type, n("type", () => true))}${Object.entries(libKinds).map(([k, v]) => opt(k, v, LIB.type, n("type", (x) => x.type === k))).join("")}</select>
+      ${folders.length > 1 ? `<select data-lib="folder" aria-label="Folder">${opt("*", "Every folder", LIB.folder, n("folder", () => true))}${folders.map((f) => opt(f, f || "(no folder)", LIB.folder, n("folder", (x) => libFolder(x) === f))).join("")}</select>` : ""}
+      <select data-lib="used" aria-label="Used">${opt("*", "Used or not", LIB.used)}${opt("unused", "Not in a post yet", LIB.used, n("used", (x) => !libUsed(x)))}${opt("used", "Already in a post", LIB.used, n("used", libUsed))}</select>
+      <input id="libQ" type="search" placeholder="Search names and descriptions" value="${esc(LIB.q)}" style="flex:1;min-width:180px">
+    </div>
+    <div id="libGrid"></div>`;
   dropZone($("#libDrop"), () => drawLibrary());
+  $("#v-library").querySelectorAll("[data-lib]").forEach((s) => (s.onchange = () => { LIB[s.dataset.lib] = s.value; LIB.shown = LIB_PAGE; libSave(); drawLibrary(); }));
+  $("#libQ").oninput = (e) => { LIB.q = e.target.value; LIB.shown = LIB_PAGE; libSave(); drawLibGrid(); };
+  drawLibGrid();
+}
+function drawLibGrid() {
+  const all = S.library.filter((x) => libMatches(x));
+  const shown = all.slice(0, LIB.shown);
+  const box = $("#libGrid");
+  box.innerHTML = `<p class="small muted" style="margin:10px 0 0">${all.length === S.library.length ? `${all.length} things` : `${all.length} of ${S.library.length}`}${shown.length < all.length ? `, showing the newest ${shown.length}` : ""}</p>
+    <div class="lib-grid">${shown.map(libCard).join("")}</div>${S.library.length ? (all.length ? "" : `<p class="small muted">Nothing matches.</p>`) : `<p class="small muted">Nothing yet.</p>`}
+    ${shown.length < all.length ? `<div class="row" style="justify-content:center;margin-top:14px"><button class="ghost" id="libMore">Show ${Math.min(LIB_PAGE, all.length - shown.length)} more</button></div>` : ""}`;
+  if ($("#libMore")) $("#libMore").onclick = () => { LIB.shown += LIB_PAGE; drawLibGrid(); };
   // A clip shows its still (library/.thumbs), plays muted while the pointer is on it, and says how long it is.
-  $("#v-library").querySelectorAll(".lib-media video").forEach((v) => {
+  box.querySelectorAll(".lib-media video").forEach((v) => {
     v.parentElement.onmouseenter = () => v.play().catch(() => {});
     v.parentElement.onmouseleave = () => { v.pause(); };
   });
-  $("#v-library").querySelectorAll("[data-describe]").forEach((t) => (t.onclick = async () => {
+  box.querySelectorAll("[data-describe]").forEach((t) => (t.onclick = async () => {
     const x = S.library.find((y) => y.file === t.dataset.describe);
     const alt = prompt(`Describe ${x.file} in one sentence (alt text):`, x.alt || "");
     if (alt === null) return;
-    await api("PUT", "/api/alt", { file: x.file, alt }); x.alt = alt; drawLibrary(); toast("Description saved");
+    await api("PUT", "/api/alt", { file: x.file, alt }); x.alt = alt; drawLibGrid(); toast("Description saved");
   }));
 }
 
