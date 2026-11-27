@@ -133,7 +133,10 @@ reaches the user too long. Funnier, never falser, and keep the payload. A flag t
 
 **Media.** Prefer the user's own photos and clips: moving a real photo or voicing a real clip looks like them; a
 picture made from nothing tends to look like everyone else's. Recipes are in `recipes/`, scripts in `tools/`.
-A clip with talking gets captions (`tools/captions.mjs`: most people watch with the sound off); a real stock photo
+A clip with talking gets captions (`tools/captions.mjs`: most people watch with the sound off); a long video
+(a talk, a stream) is a mine for short clips (`recipes/clip-it.md`, `tools/clip.mjs`: you pick the moments from its
+transcript, they choose); a post that's a list or a few points can be a carousel (Studio's
+**Make → Carousel**: one slide per paragraph, in the colours and font in `brand/look.md`, free); a real stock photo
 (`tools/pexels.mjs`) beats a made-up one when theirs won't do, and is never passed off as something that happened.
 Everything made goes in `library/` and gets a line in `library/INDEX.md` (the scripts add it). Describe each
 picture in one sentence: it becomes the alt text. When a file goes into a post, add the post's file name to its

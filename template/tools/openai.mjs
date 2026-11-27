@@ -5,6 +5,7 @@
 //   node tools/openai.mjs edit library/shot.png "put this screenshot on a phone on a desk" --out library/shot-phone.png
 //   node tools/openai.mjs speak "Most of what I build starts with me needing it." --out library/line.mp3 [--voice alloy] [--how "warm, unhurried"]
 //   node tools/openai.mjs transcribe library/clip.mp4 --out library/clip.srt        (tools/captions.mjs burns them in)
+//   node tools/openai.mjs transcribe library/talk.mp4 --out library/talk.transcript.json   (the whole transcript, for tools/clip.mjs)
 //   ... [--model name] [--dry]
 //
 // Rough prices (2026-11, platform.openai.com/pricing): an image about 4-7¢ (gpt-image-1, medium), a minute of
@@ -96,24 +97,49 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     const src = rest[0];
     if (!src || !fs.existsSync(src)) fail(`No such file: ${src ?? "(none)"}`);
     const model = typeof a.model === "string" ? a.model : "whisper-1";
+    // --out x.srt: captions, a few words at a time. --out x.json: the whole transcript (sentences and each word's time),
+    // what tools/clip.mjs reads to find clips in a long video.
+    const asJson = out.endsWith(".json");
     if (a.dry) {
-      console.log(JSON.stringify({ post: `${API}/audio/transcriptions`, model, file: src, timestamps: "word", out }, null, 2));
+      console.log(JSON.stringify({ post: `${API}/audio/transcriptions`, model, file: src, timestamps: asJson ? "word, segment" : "word", out }, null, 2));
       process.exit(0);
     }
-    // Just the sound, small (mono, 16 kHz): the upload limit is 25 MB and a clip's video isn't needed.
-    const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "words-")), "sound.mp3");
+    // Just the sound, small (mono, 16 kHz): the upload limit is 25 MB and a clip's video isn't needed. Past about an
+    // hour that is still too big, so it goes up in 20-minute pieces and the times are added back together.
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "words-"));
+    const tmp = path.join(work, "sound.mp3");
     const ff = spawnSync("ffmpeg", ["-v", "error", "-y", "-i", src, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", tmp]);
     if (ff.error || ff.status !== 0) fail(`ffmpeg couldn't take the sound out of ${src} (is ffmpeg installed, and does the clip have sound?).`);
-    const form = new FormData();
-    form.set("model", model);
-    form.set("response_format", "verbose_json");
-    form.append("timestamp_granularities[]", "word");
-    if (typeof a.lang === "string") form.set("language", a.lang);
-    form.set("file", new Blob([fs.readFileSync(tmp)], { type: "audio/mpeg" }), "sound.mp3");
-    const r = await call("/audio/transcriptions", { method: "POST", body: form }, "transcript");
-    const j = await r.json();
-    if (!j.words?.length) fail("No words heard in that clip.");
-    const saved = save(out, Buffer.from(wordsToSrt(j.words)));
-    console.log(JSON.stringify({ saved, words: j.words.length, text: String(j.text ?? "").slice(0, 300) }, null, 2));
+    let parts = [tmp];
+    if (fs.statSync(tmp).size > 24 * 1024 * 1024) {
+      const sp = spawnSync("ffmpeg", ["-v", "error", "-y", "-i", tmp, "-f", "segment", "-segment_time", "1200", "-c", "copy", path.join(work, "part-%03d.mp3")]);
+      if (sp.status !== 0) fail("ffmpeg couldn't split the sound into pieces.");
+      parts = fs.readdirSync(work).filter((f) => f.startsWith("part-")).sort().map((f) => path.join(work, f));
+    }
+    const seconds = (f) => Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], { encoding: "utf8" }).stdout) || 0;
+    const words = [], segments = [], texts = [];
+    let offset = 0;
+    for (const [i, part] of parts.entries()) {
+      if (parts.length > 1) console.error(`Hearing piece ${i + 1} of ${parts.length}…`);
+      const form = new FormData();
+      form.set("model", model);
+      form.set("response_format", "verbose_json");
+      form.append("timestamp_granularities[]", "word");
+      if (asJson) form.append("timestamp_granularities[]", "segment");
+      if (typeof a.lang === "string") form.set("language", a.lang);
+      form.set("file", new Blob([fs.readFileSync(part)], { type: "audio/mpeg" }), "sound.mp3");
+      const r = await call("/audio/transcriptions", { method: "POST", body: form }, "transcript");
+      const j = await r.json();
+      for (const w of j.words ?? []) words.push({ word: w.word, start: +(w.start + offset).toFixed(3), end: +(w.end + offset).toFixed(3) });
+      for (const g of j.segments ?? []) segments.push({ start: +(g.start + offset).toFixed(3), end: +(g.end + offset).toFixed(3), text: String(g.text ?? "").trim() });
+      texts.push(String(j.text ?? "").trim());
+      offset += parts.length > 1 ? seconds(part) : 0;
+    }
+    if (!words.length) fail("No words heard in that clip.");
+    const text = texts.join(" ");
+    const saved = asJson
+      ? save(out, Buffer.from(JSON.stringify({ source: path.basename(src), seconds: +seconds(tmp).toFixed(2), heard_by: `OpenAI ${model}`, text, segments, words }, null, 1)))
+      : save(out, Buffer.from(wordsToSrt(words)));
+    console.log(JSON.stringify({ saved, words: words.length, text: text.slice(0, 300) }, null, 2));
   } else fail(`Unknown: ${cmd}. Use image, edit, speak or transcribe.`);
 }

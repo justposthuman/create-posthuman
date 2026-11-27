@@ -9,6 +9,7 @@ import { key, ROOT } from "./lib.mjs";
 import { keysWith, PROVIDERS } from "./providers.mjs";
 import { GIVES } from "./substance-rules.mjs";
 import { topicsOf } from "./topic-rules.mjs";
+import { clock, pickClips, suggestPrompt, transcriptLines, transcriptOf } from "./clip.mjs";
 
 const read = (f) => (fs.existsSync(f) ? fs.readFileSync(f, "utf8").replace(/\r/g, "") : "");
 const day = () => new Date().toISOString().slice(0, 10);
@@ -240,6 +241,7 @@ export const RECIPES = {
   voiceover: { title: "Voiceover on your clip", via: { elevenlabs: "a few cents (ElevenLabs, by characters)", openai: "about 1.5¢ a minute (OpenAI)" } },
   image: { title: "An image", via: { fal: "about 3¢ (fal FLUX.2 Pro)", openai: "about 4-7¢ (OpenAI gpt-image-1, good with words in it)", gemini: "about 4¢ (Google Nano Banana)" } },
   stock: { title: "A real stock photo or clip", via: { pexels: "free (Pexels; credit the photographer)" } },
+  clip: { title: "Clip it: short clips from a long video", via: { openai: "under 1¢ a minute to hear it (OpenAI Whisper), so about 36¢ an hour; free with a captions file you already have" } },
 };
 const ADD = (id) => {
   const p = PROVIDERS.find((x) => x.id === id);
@@ -330,4 +332,85 @@ export function make(recipe, o) {
     };
   }
   throw new Error("No such recipe.");
+}
+
+// ---------- Clip it: short clips out of a long video (tools/clip.mjs) ----------
+// Hear it once (OpenAI, or a captions file the user already has), the user's agent suggests the moments, the user
+// ticks and nudges them, and each is cut, turned vertical and captioned into the library. Each clip also becomes an
+// idea in ideas/inbox.md, so it turns into a post the usual way (the angle is still theirs).
+
+const VIDEO = /\.(mp4|mov)$/i;
+const longVideo = (rel) => {
+  const p = inLibRel(rel);
+  if (!p || !VIDEO.test(p)) throw new Error("Pick a video from the library.");
+  return p;
+};
+const lengthOf = (f) => Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], { encoding: "utf8" }).stdout) || 0;
+const libRel = (p) => path.relative(LIB, p).split(path.sep).join("/");
+
+/** Where one video stands: how long, whether it's been heard, and the captions files in the library it could use. */
+export function clipState(rel) {
+  const v = longVideo(rel);
+  const tf = transcriptOf(v);
+  const t = fs.existsSync(tf) ? JSON.parse(read(tf)) : null;
+  const captions = [];
+  const walk = (d) => { for (const e of fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : []) { if (e.name.startsWith(".")) continue; const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (/\.(srt|vtt)$/i.test(e.name)) captions.push(libRel(f)); } };
+  walk(LIB);
+  return { video: rel, seconds: t?.seconds || lengthOf(v), heard: t ? { by: t.heard_by, sentences: t.segments.length } : null, captions };
+}
+
+export function hearVideo(rel, srt) {
+  const v = longVideo(rel);
+  if (srt) {
+    const c = inLibRel(srt);
+    if (!c || !/\.(srt|vtt)$/i.test(c)) throw new Error("Pick a captions file (.srt or .vtt) from the library.");
+    return runSteps("clip-hear", [[process.execPath, ["tools/clip.mjs", "hear", libPath(v), "--srt", libPath(c)]]]);
+  }
+  if (!keys().openai) throw new Error(`${ADD("openai")} Or use a captions file you already have (YouTube lets you download yours).`);
+  return runSteps("clip-hear", [[process.execPath, ["tools/clip.mjs", "hear", libPath(v)]]]);
+}
+const libPath = (p) => path.relative(ROOT, p).split(path.sep).join("/");
+
+export function suggestClips(rel) {
+  const v = longVideo(rel);
+  const tf = transcriptOf(v);
+  if (!fs.existsSync(tf)) throw new Error("Hear it first.");
+  const t = JSON.parse(read(tf));
+  // The lines go in a file next to the transcript: a long video's words are too long to pass as one argument.
+  const linesFile = tf.replace(/\.json$/, ".txt");
+  fs.writeFileSync(linesFile, transcriptLines(t) + "\n");
+  const about = read(path.join(ROOT, "brand", "about.md"));
+  const goal = (about.split(/^## Goals\s*$/m)[1] || "").split(/^## /m)[0].replace(/<!--[\s\S]*?-->/g, "").trim().split("\n").slice(0, 4).join(" ");
+  const prompt = suggestPrompt({ linesFile: libPath(linesFile), seconds: t.seconds, brand: (about.match(/^# About (.+)$/m)?.[1] || "").trim(), voice: read(path.join(ROOT, "brand", "voice.md")), topics: topicsOf(about).map((x) => x.name), goal });
+  return runAgent("clip-suggest", prompt, ["--allowedTools", "Read"], { onDone: (job) => { job.result = pickClips(job.out, t); if (!job.result.length) throw new Error("Your agent didn't come back with clips that fit (8 to 90 seconds, inside the video). Try again."); } });
+}
+
+/** Cut the ticked clips: [{ from, to, hook }] in seconds. Each lands in the library and becomes an idea. */
+export function cutClips(rel, picks, { size = "9:16", fit = "blur", captions = true } = {}) {
+  const v = longVideo(rel);
+  if (!["9:16", "4:5", "1:1", "wide"].includes(size)) throw new Error("Shape is 9:16, 4:5, 1:1 or wide.");
+  if (!["blur", "crop"].includes(fit)) throw new Error("Fit is blur or crop.");
+  const list = (Array.isArray(picks) ? picks : []).map((p) => ({ from: Number(p.from), to: Number(p.to), hook: String(p.hook ?? "").slice(0, 200) })).filter((p) => p.from >= 0 && p.to - p.from >= 1 && p.to - p.from <= 180);
+  if (!list.length) throw new Error("Tick at least one clip.");
+  if (captions && !fs.existsSync(transcriptOf(v))) throw new Error("Hear it first, or turn captions off.");
+  const taken = new Set();
+  const files = list.map((p) => {
+    let f = `library/${day()}-clip-${slugify(p.hook || `${path.basename(v, path.extname(v))} ${clock(p.from)}`)}`;
+    let n = 1;
+    while (taken.has(f + (n > 1 ? `-${n}` : "")) || fs.existsSync(path.join(ROOT, `${f}${n > 1 ? `-${n}` : ""}.mp4`))) n++;
+    f += n > 1 ? `-${n}` : "";
+    taken.add(f);
+    return `${f}.mp4`;
+  });
+  const steps = list.map((p, i) => [process.execPath, ["tools/clip.mjs", "cut", libPath(v), "--from", String(p.from), "--to", String(p.to), "--size", size, "--fit", fit, "--out", files[i], ...(captions ? [] : ["--no-captions"])]]);
+  return {
+    job: runSteps("clip-cut", steps, {
+      onDone: () => {
+        const inbox = path.join(ROOT, "ideas", "inbox.md");
+        const lines = list.map((p, i) => `- [ ] Clip: ${p.hook ? `"${p.hook.replace(/\s+/g, " ").slice(0, 120)}"` : `${clock(p.from)}–${clock(p.to)}`} (${files[i]}, from ${path.basename(v)} at ${clock(p.from)}, ${day()})`);
+        fs.appendFileSync(inbox, (read(inbox).endsWith("\n") || !read(inbox) ? "" : "\n") + lines.join("\n") + "\n");
+      },
+    }),
+    files,
+  };
 }

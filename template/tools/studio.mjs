@@ -24,7 +24,7 @@ import { lengthCheck, lengthsFor } from "./length-rules.mjs";
 import { brandFile, brandOfPost, brandsOf, slugOf } from "./brands.mjs";
 import { applyUpdates, listOf, parsePost, updatesOf, updatesText, wordsFor, writePost } from "./post-rules.mjs";
 import { substance } from "./substance-rules.mjs";
-import { draftWeek, jobs, keepAngle, keys, make, rawOf, RECIPES, runAgent, saveRaw, sendUpdate, startBrainstorm, stockSearch, updateWeek, weekOf } from "./studio-more.mjs";
+import { clipState, cutClips, draftWeek, hearVideo, jobs, keepAngle, keys, make, rawOf, RECIPES, runAgent, saveRaw, sendUpdate, startBrainstorm, stockSearch, suggestClips, updateWeek, weekOf } from "./studio-more.mjs";
 import { JOBS, PROVIDERS } from "./providers.mjs";
 import { addToLibrary, parseArgs, ROOT, typeOf } from "./lib.mjs";
 import { fitCheck, setupFor } from "./account-rules.mjs";
@@ -32,6 +32,7 @@ import { accountsView, refreshAccounts, saveSetups, suggestSetups, writeIntro } 
 import { checkFolder, inSources, projectsWeek, readSources, useFound, writeSources } from "./sources.mjs";
 import { addToRaw, describeFound, pullSaved, stuffView } from "./studio-stuff.mjs";
 import { topicsOf } from "./topic-rules.mjs";
+import { lookOf, lookText, parseSlides, slidesPrompt } from "./carousel-rules.mjs";
 import { aboutView, AIMS, judgePast, parsePast, pullPast, readLinks, saveAbout, saveGoals, syncAbout } from "./knowyou.mjs";
 
 const a = parseArgs(process.argv.slice(2));
@@ -366,7 +367,7 @@ const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, "http://127.0.0.1");
     if (req.method === "GET" && u.pathname === "/ping") return send(res, 200, { folder: FOLDER });
     if (req.method === "GET" && u.pathname === "/") return send(res, 200, read(HTML).replace("__TOKEN__", TOKEN), "text/html; charset=utf-8");
-    if (req.method === "GET" && ["/humanize-rules.mjs", "/substance-rules.mjs", "/account-rules.mjs", "/length-rules.mjs", "/post-rules.mjs"].includes(u.pathname)) {
+    if (req.method === "GET" && ["/humanize-rules.mjs", "/substance-rules.mjs", "/account-rules.mjs", "/length-rules.mjs", "/post-rules.mjs", "/carousel-rules.mjs"].includes(u.pathname)) {
       if (u.searchParams.get("t") !== TOKEN) return send(res, 403, { error: "token" });
       return send(res, 200, read(path.join(path.dirname(HERE), u.pathname.slice(1))), "text/javascript; charset=utf-8");
     }
@@ -551,6 +552,37 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         return send(res, 400, { error: e.message });
       }
+    }
+    // Carousel: the brand's look (brand/look.md), and the agent cutting a post into slides
+    if (route === "GET /api/look") return send(res, 200, lookOf(readIf(path.join(ROOT, "brand", "look.md"))));
+    if (route === "PUT /api/look") {
+      fs.writeFileSync(path.join(ROOT, "brand", "look.md"), lookText(await json()));
+      return send(res, 200, lookOf(readIf(path.join(ROOT, "brand", "look.md"))));
+    }
+    if (route === "POST /api/carousel/split") {
+      const { words } = await json();
+      if (!String(words || "").trim()) throw new Error("Write the post first, or pick one.");
+      if (!hasClaude) throw new Error("Splitting needs Claude Code on this computer. Without it: one slide per paragraph (a blank line starts the next).");
+      const job = runAgent("carousel", slidesPrompt(String(words), readIf(path.join(ROOT, "brand", "voice.md"))), ["--disallowedTools", "Bash", "Edit", "Write"], {
+        onDone: (j) => { j.result = parseSlides(j.out); if (j.result.length < 2) throw new Error("Your agent didn't come back with slides. Try again."); },
+      });
+      return send(res, 200, { job: job.id });
+    }
+    // Clip it: where a video stands, hear it, suggest the moments, cut the ticked ones
+    if (route === "GET /api/clip") return send(res, 200, clipState(u.searchParams.get("video") || ""));
+    if (route === "POST /api/clip/hear") {
+      const { video, srt } = await json();
+      return send(res, 200, { job: hearVideo(String(video || ""), srt ? String(srt) : "").id });
+    }
+    if (route === "POST /api/clip/suggest") {
+      const { video } = await json();
+      if (!hasClaude) throw new Error("Suggesting clips needs Claude Code on this computer. Without it: run node tools/clip.mjs lines on the video and ask your agent which moments to cut.");
+      return send(res, 200, { job: suggestClips(String(video || "")).id });
+    }
+    if (route === "POST /api/clip/cut") {
+      const { video, picks, size, fit, captions } = await json();
+      const r = cutClips(String(video || ""), picks, { size, fit, captions: captions !== false });
+      return send(res, 200, { job: r.job.id, files: r.files });
     }
     if (route === "POST /api/make") {
       const { recipe, ...o } = await json();

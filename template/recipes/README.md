@@ -9,6 +9,8 @@ page (fal.ai/models → the model → API) and update the recipe.
 - [photo-to-video.md](photo-to-video.md): one of your photos becomes a 5-second clip for TikTok and Reels (fal)
 - [voiceover.md](voiceover.md): a voiceover on your own clip (ElevenLabs + ffmpeg)
 - [empty-days.md](empty-days.md): an image for each empty day this week, saved as drafts (fal)
+- [clip-it.md](clip-it.md): short vertical clips with captions out of a long video (a talk, a stream, a podcast); your agent picks the moments (OpenAI Whisper about 36¢ an hour, or free with your own captions file)
+- Studio's **Make → Carousel**: a post as swipeable slides for Instagram, LinkedIn and TikTok photo mode, one per paragraph, in your look (`brand/look.md`); free, drawn on your computer
 - [captions.md](captions.md): captions burned into a clip, a few words at a time, the words heard from the clip (OpenAI Whisper, under 1¢ a minute, + ffmpeg)
 - `node tools/gemini.mjs edit library/shot.png "put it on a phone on a desk"` (or `tools/openai.mjs edit`): change a photo with words, the rest kept as it is (about 4¢)
 - `node tools/openai.mjs image "…"`: a picture with readable words in it (a sign, a label), where FLUX tends to garble them (about 4-7¢)

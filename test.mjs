@@ -715,6 +715,109 @@ try {
   ok(/## More than one brand/.test(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8")) && fs.readFileSync(path.join(dir, "posts/_template.md"), "utf8").includes("brand:"), "AGENTS.md and the post template say how brands work");
 }
 
+// ---------- Clip it: tools/clip.mjs + Studio's card ----------
+{
+  const C = await import(path.join(dir, "tools/clip.mjs"));
+  ok(C.parseTime("75") === 75 && C.parseTime("1:15") === 75 && C.parseTime("1:02:03,5") === 3723.5 && Number.isNaN(C.parseTime("soon")), "clip: reads times (75, 1:15, 1:02:03,5)");
+  ok(C.clock(75) === "1:15" && C.clock(3723) === "1:02:03", "…and writes them back");
+  const vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:04.000\n<c>So here's</c> the thing.\n\n00:00:04.000 --> 00:00:04.010\nSo here's the thing.\n\n00:00:05.000 --> 00:00:09.500\nI shipped it at 1am.\n";
+  const cues = C.cuesFromCaptions(vtt);
+  ok(cues.length === 2 && cues[0].text === "So here's the thing." && cues[1].start === 5, "…a .vtt file becomes lines (tags gone, YouTube's repeated line dropped)");
+  const T = { seconds: 40, segments: [
+    { start: 0, end: 4, text: "So, um, where was I." }, { start: 4, end: 9, text: "Here's the thing nobody tells you about launching." },
+    { start: 9, end: 14, text: "You get one day of attention," }, { start: 14, end: 22, text: "and then it's you posting every day for a year." },
+    { start: 22, end: 30, text: "That's the job." }, { start: 30, end: 40, text: "Anyway, the second thing." } ],
+    words: "Here's the thing nobody tells you about launching".split(" ").map((w, i) => ({ word: w, start: 4 + i * 0.6, end: 4.5 + i * 0.6 })) };
+  const lines = C.transcriptLines(T);
+  ok(lines.split("\n")[0] === "[0:00] So, um, where was I." && lines.includes("[0:09] You get one day of attention, and then it's you posting every day for a year."), "…the transcript reads as timed sentences for the agent");
+  const picks = C.pickClips('Here you go: [{"from":"0:05","to":"0:29","hook":"Here\'s the thing","why":"a claim","topic":"x"},{"from":"0:10","to":"0:20","hook":"overlaps"},{"from":"0:01","to":"0:03"},{"from":"soon","to":"0:40"}]', T);
+  ok(picks.length === 1 && picks[0].from === 4 && picks[0].to === 30, "…the agent's picks snap to whole sentences; too short, overlapping or not a time are dropped");
+  ok(C.pickClips("no json here", T).length === 0, "…and an answer with no list gives no clips");
+  const srt = C.windowSrt(T, 4, 9);
+  ok(/^1\n00:00:00,000 --> /.test(srt) && srt.includes("Here's the thing\n"), "…a clip's captions start at 0, from the words heard");
+  const fromLines = C.windowSrt({ segments: T.segments }, 9, 22);
+  ok(fromLines.startsWith("1\n00:00:00,000 --> ") && fromLines.includes("\nYou get\n") && !fromLines.includes("You get one day of attention,"), "…or from the captions file's lines, still a few words at a time");
+  const ca = C.cutArgs("in.mp4", "out.mp4", { from: 5, to: 20 });
+  ok(ca.slice(0, 5).join(" ") === "-y -ss 5 -to 20" && ca.includes("in.mp4") && ca.join(" ").includes("1080:1920"), "…cuts with the vertical shape");
+  ok(!C.cutArgs("in.mp4", "out.mp4", { from: 5, to: 20, size: "wide" }).includes("-filter_complex"), "…or leaves it wide");
+  const pr = C.suggestPrompt({ linesFile: "library/talk.transcript.txt", seconds: 3600, brand: "Kitchen Table", topics: ["Worksheets"], goal: "sales" });
+  ok(pr.includes("library/talk.transcript.txt") && pr.includes("1:00:00") && pr.includes("Worksheets") && /only have the words/.test(pr) && /JSON array/.test(pr), "…the agent is told what makes a clip, and that it only has the words");
+
+  if (haveFf) {
+    run("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=24:duration=40", "-f", "lavfi", "-i", "sine=frequency=300:duration=40", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "library/talk.mp4"], dir);
+    fs.writeFileSync(path.join(dir, "library/talk.vtt"), "WEBVTT\n\n" + T.segments.map((g) => `00:00:${String(g.start).padStart(2, "0")}.000 --> 00:00:${String(g.end).padStart(2, "0")}.000\n${g.text}\n`).join("\n"));
+    let cr = run("node", ["tools/clip.mjs", "hear", "library/talk.mp4", "--srt", "library/talk.vtt"], dir);
+    ok(cr.status === 0 && JSON.parse(fs.readFileSync(path.join(dir, "library/talk.transcript.json"), "utf8")).segments.length === 6, "clip hear: a captions file becomes the transcript, free");
+    cr = run("node", ["tools/clip.mjs", "cut", "library/talk.mp4", "--from", "4", "--to", "22", "--out", "library/cut-test.mp4"], dir);
+    const probe = run("ffprobe", ["-v", "error", "-show_entries", "stream=width,height:format=duration", "-of", "json", "library/cut-test.mp4"], dir);
+    const pj = probe.status === 0 ? JSON.parse(probe.stdout) : {};
+    ok(cr.status === 0 && pj.streams?.[0]?.width === 1080 && pj.streams?.[0]?.height === 1920 && Math.abs(Number(pj.format?.duration) - 18) < 0.6, "clip cut: 18 seconds, vertical, captions burned in (real ffmpeg)");
+    ok(fs.readFileSync(path.join(dir, "library/INDEX.md"), "utf8").includes("| cut-test.mp4 | Clip 0:04–0:22 of talk.mp4"), "…with its line in INDEX.md, saying what's said");
+    cr = run("node", ["tools/clip.mjs", "cut", "library/talk.mp4", "--from", "4", "--to", "9", "--no-captions", "--size", "wide", "--out", "library/cut-wide.mp4"], dir);
+    ok(cr.status === 0 && fs.existsSync(path.join(dir, "library/cut-wide.mp4")), "…or wide, without captions");
+
+    // Studio's card: where the video stands, hear it from the captions file, cut the ticked ones
+    const portC = 51600 + Math.floor(Math.random() * 1000);
+    const sc = spawn("node", ["tools/studio.mjs", "--port", String(portC), "--no-open"], { cwd: dir, env: { ...process.env, STUDIO_AGENT: "none", OPENAI_API_KEY: "" }, stdio: "pipe" });
+    await new Promise((res) => { sc.stdout.on("data", (d) => String(d).includes("Studio for") && res()); setTimeout(res, 4000); });
+    try {
+      const bc = `http://127.0.0.1:${portC}`;
+      const tokC = (await (await fetch(bc + "/")).text()).match(/const TOKEN = "([\w-]+)"/)?.[1];
+      const hc = { "X-Studio-Token": tokC, "Content-Type": "application/json" };
+      const wait = async (id) => { for (let i = 0; i < 80; i++) { const j = await (await fetch(`${bc}/api/job/${id}`, { headers: hc })).json(); if (j.state !== "running") return j; await new Promise((r2) => setTimeout(r2, 250)); } return {}; };
+      fs.rmSync(path.join(dir, "library/talk.transcript.json"));
+      let st = await (await fetch(`${bc}/api/clip?video=talk.mp4`, { headers: hc })).json();
+      ok(st.heard === null && Math.round(st.seconds) === 40 && st.captions.includes("talk.vtt"), "studio clip: a new video isn't heard yet, and the captions file is offered");
+      let rq = await fetch(bc + "/api/clip/hear", { method: "POST", headers: hc, body: JSON.stringify({ video: "talk.mp4" }) });
+      ok(rq.status === 500 && /OPENAI_API_KEY/.test((await rq.json()).error), "…hearing without an OpenAI key says to add one, or use a captions file");
+      rq = await fetch(bc + "/api/clip/hear", { method: "POST", headers: hc, body: JSON.stringify({ video: "talk.mp4", srt: "talk.vtt" }) });
+      ok((await wait((await rq.json()).job)).state === "done" && (await (await fetch(`${bc}/api/clip?video=talk.mp4`, { headers: hc })).json()).heard?.sentences === 6, "…heard from the captions file");
+      rq = await fetch(bc + "/api/clip/suggest", { method: "POST", headers: hc, body: JSON.stringify({ video: "talk.mp4" }) });
+      ok(rq.status === 500 && /Claude Code/.test((await rq.json()).error), "…suggesting needs an agent, and says what to do without one");
+      rq = await fetch(bc + "/api/clip/cut", { method: "POST", headers: hc, body: JSON.stringify({ video: "talk.mp4", picks: [{ from: 4, to: 14, hook: "Here's the thing nobody tells you" }], size: "1:1" }) });
+      const cut = await rq.json();
+      ok((await wait(cut.job)).state === "done" && fs.existsSync(path.join(dir, cut.files[0])) && /clip-here-s-the-thing-nobody-tells-you\.mp4$/.test(cut.files[0]), "…cuts the ticked one into the library");
+      ok(fs.readFileSync(path.join(dir, "ideas/inbox.md"), "utf8").includes(`- [ ] Clip: "Here's the thing nobody tells you" (${cut.files[0]}, from talk.mp4 at 0:04`), "…and it waits as an idea in the inbox");
+      rq = await fetch(bc + "/api/clip?video=../AGENTS.md", { headers: hc });
+      ok(rq.status === 500, "…only videos inside library/");
+    } finally {
+      sc.kill();
+    }
+  }
+}
+
+// ---------- Carousel: tools/carousel-rules.mjs + Studio's look and split ----------
+{
+  const K = await import(path.join(dir, "tools/carousel-rules.mjs"));
+  const L = K.lookOf("- background: #112233\n- text: #FFFFFF\n- accent: red\n- font: Comic Sans\n- handle: @shop");
+  ok(L.background === "#112233" && L.text === "#ffffff" && L.accent === K.DEFAULT_LOOK.accent && L.font === "Archivo" && L.handle === "@shop", "carousel: brand/look.md is read; a colour or font it can't use keeps the default");
+  ok(K.lookOf(K.lookText(L)).background === "#112233" && K.lookText(L).startsWith("# How the brand looks"), "…and written back the same");
+  ok(K.splitSlides("Hook line.\n\nPoint one\nstill one.\n---\nPoint two.\n\n\nAsk?").join("|") === "Hook line.|Point one still one.|Point two.|Ask?", "…a blank line or --- starts the next slide");
+  ok(K.parseSlides('Sure: ["One", "Two *big*", ""]').join("|") === "One|Two *big*" && K.parseSlides("nope").length === 0, "…the agent's slides are read from its list");
+  ok(JSON.stringify(K.runsOf("I cut it to *one*.")) === JSON.stringify([{ text: "I cut it to ", hot: false }, { text: "one", hot: true }, { text: ".", hot: false }]), "…*stars* mark the accent word");
+  const pr = K.slidesPrompt("Fifty sign-ups. Half quit.", "plain, no hype");
+  ok(pr.includes("Fifty sign-ups. Half quit.") && /Never add a fact/.test(pr) && pr.includes("plain, no hype"), "…the agent is told to shorten, never invent");
+
+  const portK = 52700 + Math.floor(Math.random() * 1000);
+  const sk = spawn("node", ["tools/studio.mjs", "--port", String(portK), "--no-open"], { cwd: dir, env: { ...process.env, STUDIO_AGENT: "none" }, stdio: "pipe" });
+  await new Promise((res) => { sk.stdout.on("data", (d) => String(d).includes("Studio for") && res()); setTimeout(res, 4000); });
+  try {
+    const bk = `http://127.0.0.1:${portK}`;
+    const tokK = (await (await fetch(bk + "/")).text()).match(/const TOKEN = "([\w-]+)"/)?.[1];
+    const hk = { "X-Studio-Token": tokK, "Content-Type": "application/json" };
+    let lk = await (await fetch(bk + "/api/look", { headers: hk })).json();
+    ok(lk.background === K.DEFAULT_LOOK.background && !fs.existsSync(path.join(dir, "brand/look.md")), "studio carousel: no look.md yet gives the default look");
+    lk = await (await fetch(bk + "/api/look", { method: "PUT", headers: hk, body: JSON.stringify({ ...lk, accent: "#ff8800", handle: "@kt" }) })).json();
+    ok(lk.accent === "#ff8800" && fs.readFileSync(path.join(dir, "brand/look.md"), "utf8").includes("- handle: @kt"), "…Save as my look writes brand/look.md");
+    const sr = await fetch(bk + "/api/carousel/split", { method: "POST", headers: hk, body: JSON.stringify({ words: "A post." }) });
+    ok(sr.status === 500 && /one slide per paragraph/.test((await sr.json()).error), "…splitting without an agent says how to do it by hand");
+    ok((await fetch(bk + "/carousel-rules.mjs?t=" + tokK)).status === 200, "…the page gets the same rules");
+  } finally {
+    sk.kill();
+  }
+  fs.rmSync(path.join(dir, "brand/look.md"), { force: true });
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

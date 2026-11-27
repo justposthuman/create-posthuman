@@ -103,6 +103,18 @@ textarea:focus, input[type=text]:focus { border-color: var(--accent); }
 .acct-card dd { margin: 0; }
 .acct-card.unset { border-style: dashed; }
 .example { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-top: 8px; white-space: pre-wrap; font-size: 14px; }
+.recipe.wide { grid-column: 1 / -1; }
+.clip-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.clip-row input.t { width: 74px; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 14px; }
+.clip-row .hook { font-weight: 700; margin: 6px 0 2px; }
+.car-strip { display: flex; gap: 10px; overflow-x: auto; padding: 12px 0 6px; }
+.car-strip canvas { width: 190px; height: auto; flex: none; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.car-look { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-top: 10px; font-size: 13px; }
+.car-look label { display: flex; align-items: center; gap: 6px; margin: 0; text-transform: none; letter-spacing: 0; font-size: 13px; color: inherit; }
+.car-look input[type=color] { width: 34px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; }
+.car-look input[type=text] { width: 140px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; }
+.car-look select { width: auto; }
+.clip-prev { width: 100%; max-height: 300px; border-radius: 12px; background: #000; margin-top: 10px; }
 .needkey { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; }
@@ -134,6 +146,14 @@ a.card.inph:hover { border-color: var(--accent); }
 .card .flag { background: var(--warn); border: 1px solid var(--warn-line); border-radius: 999px; font-size: 11px; padding: 1px 7px; }
 .thumbs { display: flex; gap: 4px; margin-top: 6px; }
 .thumbs img, .thumbs video { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+/* a picture or clip on a card or in a post's media list opens here, full size, and a clip plays */
+.thumbs img, .thumbs .vthumb, .media-item img, .media-item video { cursor: zoom-in; }
+.vthumb { position: relative; display: inline-flex; }
+.vthumb i { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); pointer-events: none; }
+dialog.viewer { border: 0; padding: 0; background: transparent; max-width: 94vw; max-height: 94vh; overflow: visible; }
+dialog.viewer::backdrop { background: rgba(12, 8, 34, .84); }
+.viewer video, .viewer img { display: block; max-width: 94vw; max-height: 88vh; border-radius: 12px; background: #000; }
+.viewer .x { position: absolute; top: -44px; right: 0; border: 0; background: none; color: #fff; font-size: 30px; line-height: 1; cursor: pointer; }
 .undated { margin-top: 28px; }
 .undated h2 { font-size: 13px; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
 .undated .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
@@ -229,6 +249,9 @@ h3.label { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-
 .job { position: fixed; right: 16px; bottom: 16px; width: min(460px, calc(100% - 32px)); background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); z-index: 20; padding: 12px 14px; display: none; }
 .job.open { display: block; }
 .job pre { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 12px; margin: 8px 0 0; }
+.gone { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 40; max-width: min(640px, calc(100vw - 28px)); background: var(--ink); color: var(--paper); padding: 12px 18px; border-radius: 16px; font-size: 14.5px; line-height: 1.45; box-shadow: 0 12px 30px rgba(0,0,0,.25); }
+.gone code { background: rgba(255,255,255,.14); padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+.gone a { color: inherit; font-weight: 700; }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 999px; font-size: 14px; z-index: 30; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.show { opacity: 1; }
 </style>
@@ -275,18 +298,43 @@ h3.label { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-
 <section class="sheet" id="sheet" aria-label="Post"></section>
 <div class="job" id="job"></div>
 <div class="toast" id="toast"></div>
+<dialog class="viewer" id="viewer" aria-label="Full size"></dialog>
+<div class="gone" id="gone" role="alert" hidden></div>
 
 <script>
 const TOKEN = "__TOKEN__";
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// When Studio itself has stopped (or was started again, which gives it a new token), every place that loads from it
+// came up blank with no word why. Say so instead, once, at the top.
+const gone = (html) => { const g = $("#gone"); if (g.hidden || g.innerHTML !== html) { g.innerHTML = html; g.hidden = false; } };
 const api = async (method, url, body, raw) => {
-  const r = await fetch(url, { method, headers: { "X-Studio-Token": TOKEN, ...(raw ? {} : { "Content-Type": "application/json" }) }, body: raw ? body : body === undefined ? undefined : JSON.stringify(body) });
+  let r;
+  try {
+    r = await fetch(url, { method, headers: { "X-Studio-Token": TOKEN, ...(raw ? {} : { "Content-Type": "application/json" }) }, body: raw ? body : body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e) {
+    gone(`Studio has stopped, so this page can't load anything. In your folder, run <code>node tools/studio.mjs</code>, then <a href="">reload this page</a>.`);
+    throw e;
+  }
   const j = await r.json().catch(() => ({}));
+  if (r.status === 403 && j.error === "token") gone(`Studio was started again since this page opened. <a href="">Reload this page</a> to carry on.`);
   if (!r.ok) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status });
   return j;
 };
 const media = (f) => `/library/${f.split("/").map(encodeURIComponent).join("/")}?t=${TOKEN}`;
+// A post's picture or clip, on its card or in its media list: open it here, full size (a clip plays with sound and
+// controls). It runs first, so the click doesn't also open the post (or, for one in Posthuman, the website).
+document.addEventListener("click", (e) => {
+  const m = e.target.closest?.(".thumbs img, .thumbs .vthumb, .media-item img, .media-item video");
+  if (!m) return;
+  e.preventDefault(); e.stopPropagation();
+  const el = m.matches(".vthumb") ? m.querySelector("video") : m, src = el.currentSrc || el.src, d = $("#viewer");
+  d.innerHTML = `<button class="x" aria-label="Close">×</button>${el.tagName === "VIDEO" ? `<video src="${esc(src)}" controls autoplay playsinline></video>` : `<img src="${esc(src)}" alt="${esc(el.alt || "")}">`}`;
+  d.querySelector(".x").onclick = () => d.close();
+  d.onclick = (ev) => { if (ev.target === d) d.close(); };
+  d.onclose = () => { d.innerHTML = ""; };
+  d.showModal();
+}, true);
 const toast = (msg) => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200); };
 
 // platforms: limits and how the card looks
@@ -307,7 +355,10 @@ const PLATFORMS = [
 ];
 const platformOf = (acct) => PLATFORMS.find((p) => p.re.test(acct)) || { name: acct, limit: 0 };
 const handleOf = (acct) => (acct.match(/@[\w.@-]+/) || [""])[0];
-const parts = (t) => t.split(/\n---\n/);
+// A line with only --- splits a thread, the way Posthuman reads it (lib/rules.ts splitThread). X, Bluesky, Mastodon
+// and Threads post the parts as a thread, each a reply to the one before; everywhere else gets one post, joined.
+const parts = (t) => { const ps = String(t ?? "").split(/^[ \t]*---[ \t]*$/m).map((x) => x.trim()).filter(Boolean); return ps.length ? ps : [""]; };
+const THREADS = /^(X|Bluesky|Mastodon|Threads)$/;
 const glyphs = (s) => [...s].length;
 
 let S = { posts: [], library: [], ideas: [], agent: null, brand: "" };
@@ -379,7 +430,7 @@ function inPosthuman(p) {
 function card(p) {
   const first = parts(p.everywhere)[0];
   const n = parts(p.everywhere).length;
-  const thumbs = p.media.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<video src="${media(f)}" muted preload="metadata"></video>` : /\.(mp3|wav|m4a)$/i.test(f) ? "" : `<img src="${media(f)}" alt="">`).join("");
+  const thumbs = p.media.slice(0, 4).map((f) => /\.(mp4|mov)$/i.test(f) ? `<span class="vthumb" title="Play it"><video src="${media(f)}" muted preload="metadata"></video><i>▶</i></span>` : /\.(mp3|wav|m4a)$/i.test(f) ? "" : `<img src="${media(f)}" alt="">`).join("");
   const ph = inPosthuman(p);
   // In Posthuman already: the website is the one to change it in. Studio shows it, and the card opens it there.
   if (ph) return `<a class="card inph" href="${esc(ph)}" target="_blank" rel="noopener" title="Open it in Posthuman: change it there">
@@ -569,7 +620,7 @@ function drawCounts() {
       }
     }
     if (!pf.limit) return `<span class="count">${esc(pf.name)}</span>`;
-    const longest = Math.max(...parts(resolved(a)).map(glyphs));
+    const longest = THREADS.test(pf.name) ? Math.max(...parts(resolved(a)).map(glyphs)) : glyphs(parts(resolved(a)).join("\n\n"));
     return `<span class="count ${longest > pf.limit ? "over" : ""}" title="${esc(a)}">${esc(pf.name)} ${longest}/${pf.limit}</span>`;
   }).join("");
 }
@@ -577,9 +628,16 @@ function drawPreview() {
   const a = open.tab || "Everywhere";
   const pf = platformOf(a);
   const name = (open?.brand && brandName(open.brand)) || S.brand;
-  const ps = parts(resolved(a));
+  const all = parts(resolved(a));
+  const names = [...new Set((open.base.accounts || []).map((x) => platformOf(x).name))];
+  const threading = a === "Everywhere" ? names.filter((n) => THREADS.test(n)) : THREADS.test(pf.name) ? [pf.name] : [];
+  const ps = threading.length ? all : [all.join("\n\n")];
   const m = open.media.filter((f) => !/\.(mp3|wav|m4a)$/i.test(f));
-  $("#preview").innerHTML = ps.map((t, i) => `
+  const list = (xs) => xs.join(", ").replace(/, ([^,]*)$/, " and $1");
+  const note = all.length < 2 ? "" : a === "Everywhere"
+    ? [threading.length ? `${list(threading)}: ${all.length} posts, each a reply to the one before.` : "", names.filter((n) => !THREADS.test(n)).length ? `${list(names.filter((n) => !THREADS.test(n)))}: one post, the parts joined.` : ""].filter(Boolean).join(" ")
+    : threading.length ? `On ${pf.name}: ${all.length} posts, each a reply to the one before.` : `${pf.name} doesn't do threads, so it goes out as one post, the parts joined.`;
+  $("#preview").innerHTML = (note ? `<div class="small muted" style="margin-bottom:8px">${esc(note)}</div>` : "") + ps.map((t, i) => `
     ${i ? `<div class="joined"></div>` : ""}
     <div class="preview">
       <div class="who"><div class="avatar">${esc(name[0]?.toUpperCase() || "?")}</div><div><div class="name">${esc(name)}</div><div class="handle">${esc(handleOf(a) || pf.name)}</div></div></div>
@@ -1211,6 +1269,10 @@ function drawMake() {
   $("#v-make").innerHTML = head("Make", "Pictures, clips, captions and voiceovers, made on your computer with your own keys. Everything lands in the Library. Your own photos and clips beat made-up ones.") + `
     <div class="panel" style="margin-bottom:16px"><h3 style="margin-top:0">Your keys</h3><div class="small muted" style="margin-bottom:10px">They live in this folder's .env and only ever go to their own service. Add a line, then reload this page.</div><div class="keys">${P.map(keyRow).join("")}</div></div>
     <div class="recipes">
+      ${clipCard(clips)}
+      <div class="panel recipe wide" id="r-car"><h3>Carousel: a post as swipeable slides</h3><div class="cost">free · drawn on this computer</div>
+        <div class="small muted">For Instagram, LinkedIn and TikTok photo mode. One slide per paragraph (a blank line starts the next). *Stars* around a word show it in your accent colour.</div>
+        <div id="car-box"></div><pre class="small" id="out-car" style="white-space:pre-wrap"></pre></div>
       ${card("captions", `<label>Your clip</label>${clips.length ? `<select id="m-cclip">${opts(clips)}</select>` : `<div class="small muted">Add a clip to the Library first.</div>`}<div class="small muted" style="margin-top:6px">The words are heard from the clip, a few at a time. A name can come out wrong: the .srt next to it is plain text to fix.</div>`)}
       ${card("video", `<label>Your photo</label>${photos.length ? `<select id="m-photo">${opts(photos)}</select>` : `<div class="small muted">Add a photo to the Library first.</div>`}<label>The motion</label><input type="text" id="m-motion" placeholder="a slow push-in, steam rising from the mug">`)}
       ${card("edit", `<label>Your photo</label>${photos.length ? `<select id="m-ephoto">${opts(photos)}</select>` : `<div class="small muted">Add a photo to the Library first.</div>`}<label>What should change (only that)</label><input type="text" id="m-change" placeholder="put this screenshot on a phone lying on a wooden desk">`)}
@@ -1219,6 +1281,8 @@ function drawMake() {
       ${card("stock", `<label>What you're looking for</label><div class="row"><input type="text" id="m-q" placeholder="coffee on a desk at night" style="flex:1"><select id="m-kind"><option value="0">Photos</option><option value="1">Clips</option></select><button id="m-search" ${K.pexels ? "" : "disabled"}>Search</button></div><div class="stock" id="m-results"></div>`, false)}
     </div>`;
   $("#v-make").querySelectorAll("[data-via]").forEach((sel) => (sel.onchange = () => drawMake()));
+  drawCarousel();
+  if ($("#m-long")) { $("#m-long").value = CLIP.video && clips.some((x) => x.file === CLIP.video) ? CLIP.video : $("#m-long").value; $("#m-long").onchange = drawClip; drawClip(); }
   $("#v-make").querySelectorAll("[data-make]").forEach((b) => (b.onclick = async () => {
     const id = b.dataset.make, out = $(`#out-${id}`), via = pick(id);
     const o = id === "video" ? { photo: $("#m-photo")?.value, motion: $("#m-motion").value }
@@ -1241,6 +1305,195 @@ function drawMake() {
         await runMake("stock", { id: it.dataset.id, video: !!it.dataset.video, via: "pexels" }, $("#out-stock"));
       }));
     } catch (e) { box.textContent = e.message; }
+  };
+}
+// ---------- Carousel: a post as swipeable slides (tools/carousel-rules.mjs) ----------
+const CAR = { text: "", post: "", shape: "4:5", look: null };
+let carRules = null;
+import(`/carousel-rules.mjs?t=${TOKEN}`).then((m) => { carRules = m; if (view === "make") drawCarousel(); }).catch(() => {});
+const carFont = (L) => (L.font === "Georgia" ? "Georgia, serif" : L.font === "system-ui" ? "system-ui, sans-serif" : '"Archivo", system-ui, sans-serif');
+function carWrap(c, runs, maxW) {
+  const tokens = runs.flatMap((r) => r.text.split(/(\s+)/).filter(Boolean).map((t) => ({ t, hot: r.hot })));
+  const lines = [[]];
+  let x = 0;
+  for (const tk of tokens) {
+    if (/^\s+$/.test(tk.t)) { if (lines.at(-1).length) { lines.at(-1).push({ t: " ", hot: tk.hot }); x += c.measureText(" ").width; } continue; }
+    const w = c.measureText(tk.t).width;
+    if (x + w > maxW && lines.at(-1).length) {
+      if (lines.at(-1).at(-1)?.t === " ") lines.at(-1).pop();
+      lines.push([]); x = 0;
+    }
+    lines.at(-1).push(tk); x += w;
+  }
+  return lines;
+}
+/** One slide: the first is the hook (big, under an accent bar), the others carry their number; handle and n/n at the foot. */
+function drawSlide(cv, text, i, n, L, shape) {
+  const { w, h } = carRules.SHAPES[shape];
+  cv.width = w; cv.height = h;
+  const c = cv.getContext("2d"), pad = 96, fam = carFont(L), first = i === 0;
+  c.fillStyle = L.background; c.fillRect(0, 0, w, h);
+  c.textBaseline = "top";
+  c.fillStyle = L.accent;
+  if (first) c.fillRect(pad, pad, 120, 14);
+  else { c.font = `800 72px ${fam}`; c.fillText(String(i + 1).padStart(2, "0"), pad, pad - 8); }
+  const runs = carRules.runsOf(text), weight = first ? 800 : 700;
+  const top = pad + (first ? 60 : 130), boxW = w - pad * 2, boxH = h - top - pad - 110;
+  let size = first ? 124 : 104, lines = [];
+  for (; size >= 28; size -= 4) {
+    c.font = `${weight} ${size}px ${fam}`;
+    lines = carWrap(c, runs, boxW);
+    if (lines.length * size * 1.14 <= boxH) break;
+  }
+  const lh = size * 1.14;
+  let y = first ? Math.max(top, (h - lines.length * lh) / 2 - 20) : Math.max(top, top + (boxH - lines.length * lh) / 2 - 40);   // the hook sits mid-slide; the others in the room under their number
+  for (const ln of lines) {
+    let x = pad;
+    for (const tk of ln) { c.fillStyle = tk.hot ? L.accent : L.text; c.fillText(tk.t, x, y); x += c.measureText(tk.t).width; }
+    y += lh;
+  }
+  c.font = `600 34px ${fam}`; c.fillStyle = L.text; c.globalAlpha = 0.72;
+  if (L.handle) c.fillText(L.handle, pad, h - pad - 30);
+  c.textAlign = "right"; c.fillText(i < n - 1 ? `${i + 1}/${n}  →` : `${i + 1}/${n}`, w - pad, h - pad - 30);
+  c.textAlign = "left"; c.globalAlpha = 1;
+}
+async function drawStrip() {
+  const strip = $("#car-strip");
+  if (!strip || !carRules || !CAR.look) return;
+  const slides = carRules.splitSlides(CAR.text);
+  await document.fonts.load(`800 100px ${carFont(CAR.look)}`).catch(() => {});
+  strip.innerHTML = slides.length ? slides.map(() => "<canvas></canvas>").join("") : `<div class="small muted">Your slides show here as you write.</div>`;
+  strip.querySelectorAll("canvas").forEach((cv, i) => drawSlide(cv, slides[i], i, slides.length, CAR.look, CAR.shape));
+  const b = $("#car-save");
+  if (b) { b.disabled = slides.length < 2; b.textContent = `Save ${slides.length} slide${slides.length === 1 ? "" : "s"} to the Library`; }
+}
+async function drawCarousel() {
+  const box = $("#car-box");
+  if (!box) return;
+  if (!carRules) { box.innerHTML = `<div style="margin-top:10px"><span class="spin"></span></div>`; return; }
+  if (!CAR.look) { try { CAR.look = await api("GET", "/api/look"); } catch (e) { box.textContent = e.message; return; } }
+  const L = CAR.look, posts = S.posts.filter((p) => (p.everywhere || "").trim() && !["dropped", "posted"].includes(p.status));
+  box.innerHTML = `<label>From a post (or write it below)</label><select id="car-post"><option value="">Write it here</option>${posts.map((p) => `<option value="${esc(p.slug)}" ${p.slug === CAR.post ? "selected" : ""}>${esc(p.slug.slice(0, 10))} · ${esc(p.everywhere.replace(/\s+/g, " ").slice(0, 70))}</option>`).join("")}</select>
+    <label>Slides</label><textarea id="car-text" rows="7" placeholder="The hook, short.&#10;&#10;One point per slide.&#10;&#10;End on your question.">${esc(CAR.text)}</textarea>
+    <div class="row" style="margin-top:8px"><button id="car-split" ${S.agent ? "" : "disabled"}>Let your agent split it</button><span class="small muted">It cuts the post into 4 to 8 slides in its own words, and never adds a fact.</span></div>
+    <div class="car-look"><select id="car-shape">${Object.entries(carRules.SHAPES).map(([k, v]) => `<option value="${k}" ${k === CAR.shape ? "selected" : ""}>${k} ${esc(v.for)}</option>`).join("")}</select>
+      <label>Background <input type="color" id="car-bg" value="${esc(L.background)}"></label><label>Text <input type="color" id="car-ink" value="${esc(L.text)}"></label><label>Accent <input type="color" id="car-acc" value="${esc(L.accent)}"></label>
+      <label>Font <select id="car-font">${carRules.FONTS.map((f) => `<option ${f === L.font ? "selected" : ""}>${esc(f)}</option>`).join("")}</select></label>
+      <label>Handle <input type="text" id="car-handle" value="${esc(L.handle)}" placeholder="@you"></label>
+      <button id="car-look-save">Save as my look</button></div>
+    <div class="car-strip" id="car-strip"></div>
+    <div class="row"><button class="lit" id="car-save" disabled>Save to the Library</button>${CAR.post ? `<label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:inherit"><input type="checkbox" id="car-attach" checked> and add them to that post</label>` : ""}</div>`;
+  $("#car-post").onchange = () => { CAR.post = $("#car-post").value; const p = S.posts.find((x) => x.slug === CAR.post); if (p) CAR.text = p.everywhere.split(/\n\s*---\s*\n/).join("\n\n"); drawCarousel(); };
+  let t = 0;
+  $("#car-text").oninput = () => { CAR.text = $("#car-text").value; clearTimeout(t); t = setTimeout(drawStrip, 250); };
+  const look = () => { Object.assign(CAR.look, { background: $("#car-bg").value, text: $("#car-ink").value, accent: $("#car-acc").value, font: $("#car-font").value, handle: $("#car-handle").value.trim() }); CAR.shape = $("#car-shape").value; drawStrip(); };
+  ["#car-bg", "#car-ink", "#car-acc", "#car-font", "#car-shape"].forEach((id) => ($(id).oninput = look));
+  $("#car-handle").oninput = look;
+  $("#car-look-save").onclick = async () => { try { CAR.look = await api("PUT", "/api/look", CAR.look); toast("Saved in brand/look.md"); } catch (e) { toast(e.message); } };
+  $("#car-split").onclick = async () => {
+    const out = $("#out-car");
+    out.innerHTML = `<span class="spin"></span> Your agent is splitting it…`;
+    try {
+      const r = await api("POST", "/api/carousel/split", { words: CAR.text });
+      const j = await waitJob(r.job);
+      if (j.state !== "done") { out.textContent = `It stopped:\n${(j.err || j.out || "").slice(-400)}`; return; }
+      out.textContent = "";
+      CAR.text = (j.result || []).join("\n\n");
+      drawCarousel();
+    } catch (e) { out.textContent = e.message; }
+  };
+  $("#car-save").onclick = async () => {
+    const slides = carRules.splitSlides(CAR.text), cvs = [...$("#car-strip").querySelectorAll("canvas")], out = $("#out-car");
+    const base = (CAR.post || slides[0].replace(/\*/g, "")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").replace(/^\d{4}-\d{2}-\d{2}-/, "").slice(0, 32) || "carousel";
+    out.innerHTML = `<span class="spin"></span> Saving…`;
+    try {
+      const files = [];
+      for (const [i, cv] of cvs.entries()) {
+        const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+        const r = await api("POST", `/api/upload?name=${encodeURIComponent(`carousel-${base}-${i + 1}.png`)}&alt=${encodeURIComponent(`Carousel slide ${i + 1} of ${cvs.length}: ${slides[i].replace(/\*/g, "")}`)}`, blob, true);
+        files.push(r.file);
+      }
+      const p = CAR.post && $("#car-attach")?.checked ? S.posts.find((x) => x.slug === CAR.post) : null;
+      if (p) await api("PUT", `/api/post/${encodeURIComponent(p.slug)}`, { media: [...p.media.filter((f) => !files.includes(f)), ...files] });
+      await load(false);
+      $("#out-car").textContent = `Saved ${files.length} slides in the Library${p ? `, and added to ${p.slug}` : ""}:\n${files.join("\n")}`;
+    } catch (e) { out.textContent = e.message; }
+  };
+  drawStrip();
+}
+
+// ---------- Clip it: short clips from a long video ----------
+// Hear it (OpenAI, or a captions file), your agent suggests the moments, you tick and nudge them, they're cut.
+const CLIP = { video: "", picks: {} };
+const toSec = (v) => { const t = String(v ?? "").trim(); return /^\d+(:\d{1,2}){0,2}(\.\d+)?$/.test(t) ? t.split(":").reduce((a, p) => a * 60 + Number(p), 0) : NaN; };
+const clockOf = (sec) => { const s = Math.max(0, Math.floor(sec)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, r = s % 60; return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`; };
+const lenOf = (sec) => (sec >= 3600 ? `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min` : sec >= 600 ? `${Math.round(sec / 60)} min` : clockOf(sec));
+function clipCard(clips) {
+  const long = clips.slice().sort((a, b) => (b.duration || 0) - (a.duration || 0));
+  return `<div class="panel recipe wide" id="r-clip"><h3>Clip it: short clips from a long video</h3><div class="cost">${esc(S.recipes?.clip?.via?.openai || "")}</div>
+    <div class="small muted">A talk, a stream, a podcast, you explaining your screen. Put the video in the Library (drag it in there, or copy it into this folder's library/). Your agent finds the moments from what's said, not what's shown, so a great silent moment won't come up.</div>
+    <label>Your long video</label>${long.length ? `<select id="m-long">${long.map((x) => `<option value="${esc(x.file)}">${esc(x.alt || x.file)}${x.duration ? ` (${lenOf(x.duration)})` : ""}</option>`).join("")}</select>` : `<div class="small muted">Add a video to the Library first.</div>`}
+    <div id="clip-box"></div><pre class="small" id="out-clip" style="white-space:pre-wrap"></pre></div>`;
+}
+async function clipJob(url, body, label) {
+  const out = $("#out-clip");
+  out.innerHTML = `<span class="spin"></span> ${esc(label)}`;
+  try {
+    const r = await api("POST", url, body);
+    const j = await waitJob(r.job, (x) => { const last = (x.err || "").trim().split("\n").at(-1); if (last && /piece/.test(last)) out.innerHTML = `<span class="spin"></span> ${esc(label)} ${esc(last)}`; });
+    if (j.state !== "done") { out.textContent = `It stopped:\n${(j.err || j.out || "").slice(-600)}`; return null; }
+    out.textContent = "";
+    return { ...j, files: r.files };
+  } catch (e) { out.textContent = e.message; return null; }
+}
+async function drawClip() {
+  const sel = $("#m-long"), box = $("#clip-box");
+  if (!sel || !box) return;
+  const video = (CLIP.video = sel.value);
+  box.innerHTML = `<div style="margin-top:10px"><span class="spin"></span></div>`;
+  let st;
+  try { st = await api("GET", `/api/clip?video=${encodeURIComponent(video)}`); } catch (e) { box.textContent = e.message; return; }
+  if (sel.value !== video) return;
+  if (!st.heard) {
+    const cost = Math.max(1, Math.round(st.seconds / 60 * 0.6));
+    box.innerHTML = `<div class="small" style="margin-top:12px"><b>First, it hears the words.</b> ${lenOf(st.seconds)} long.</div>
+      <div class="row" style="margin-top:8px"><button class="lit" id="c-hear" ${S.keys?.openai ? "" : "disabled"}>Hear it (about ${cost}¢, OpenAI)</button>
+      ${st.captions.length ? `<select id="c-srt" style="width:auto">${st.captions.map((c) => `<option>${esc(c)}</option>`).join("")}</select><button id="c-srt-go">Use this captions file (free)</button>` : ""}</div>
+      ${S.keys?.openai ? "" : `<div class="needkey" style="margin-top:8px">Hearing it needs OPENAI_API_KEY in .env (Your keys, above). Or put a captions file (.srt or .vtt; YouTube lets you download yours) in library/ and use that, free.</div>`}`;
+    const hear = async (srt) => { if (!srt && !confirm(`Hear it? About ${cost}¢, paid to OpenAI with your key.`)) return; if (await clipJob("/api/clip/hear", { video, srt }, "Hearing it…")) drawClip(); };
+    if ($("#c-hear")) $("#c-hear").onclick = () => hear("");
+    if ($("#c-srt-go")) $("#c-srt-go").onclick = () => hear($("#c-srt").value);
+    return;
+  }
+  const picks = CLIP.picks[video] || [];
+  box.innerHTML = `<div class="small" style="margin-top:12px">Heard ✓ ${esc(st.heard.by)}, ${lenOf(st.seconds)}.</div>
+    <div class="row" style="margin-top:8px"><button class="${picks.length ? "" : "lit"}" id="c-suggest" ${S.agent ? "" : "disabled"}>${picks.length ? "Suggest again" : "Suggest clips"}</button><span class="small muted">Your agent reads it and picks 3 to 6 moments that work on their own.</span></div>
+    ${S.agent ? "" : needAgent()}
+    ${picks.length ? `<video class="clip-prev" id="c-prev" src="${media(video)}" preload="metadata" controls playsinline></video>
+    <div id="c-list">${picks.map((p, i) => `<div class="clip-row"><input type="checkbox" data-on="${i}" ${p.on === false ? "" : "checked"} aria-label="Cut this one">
+      <div><div class="row"><input class="t" data-from="${i}" value="${clockOf(p.from)}" aria-label="Starts at"> to <input class="t" data-to="${i}" value="${clockOf(p.to)}" aria-label="Ends at"><span class="small muted" data-len="${i}">${Math.round(p.to - p.from)} s</span><button data-play="${i}">▶ Watch it</button>${p.topic ? `<span class="topic">${esc(p.topic)}</span>` : ""}</div>
+      <div class="hook">"${esc(p.hook)}"</div><div class="small muted">${esc(p.why)}</div></div></div>`).join("")}</div>
+    <div class="row" style="margin-top:10px"><select id="c-size" style="width:auto"><option value="9:16">9:16 Reels, TikTok, Shorts</option><option value="4:5">4:5 feed</option><option value="1:1">1:1 square</option><option value="wide">As it is (wide)</option></select>
+      <select id="c-fit" style="width:auto"><option value="blur">Whole picture, blurred edges</option><option value="crop">Fill the frame (cuts the sides)</option></select>
+      <label style="display:flex;gap:6px;align-items:center;margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:inherit"><input type="checkbox" id="c-caps" checked> Captions</label>
+      <button class="lit" id="c-cut">Cut the ticked ones</button></div>
+    <div class="small muted" style="margin-top:6px">Free (ffmpeg on this computer). Each clip lands in the Library and as an idea in ideas/inbox.md, ready to become a post.</div>` : ""}`;
+  $("#c-suggest").onclick = async () => {
+    const j = await clipJob("/api/clip/suggest", { video }, "Your agent is reading it… (a minute or two for a long one)");
+    if (j) { CLIP.picks[video] = j.result || []; drawClip(); }
+  };
+  const prev = $("#c-prev");
+  let stopAt = 0;
+  if (prev) prev.ontimeupdate = () => { if (stopAt && prev.currentTime >= stopAt) { prev.pause(); stopAt = 0; } };
+  box.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => { const p = picks[+b.dataset.play]; prev.currentTime = p.from; stopAt = p.to; prev.play().catch(() => {}); }));
+  box.querySelectorAll("[data-on]").forEach((c) => (c.onchange = () => (picks[+c.dataset.on].on = c.checked)));
+  const nudge = (i) => { const p = picks[i], f = toSec(box.querySelector(`[data-from="${i}"]`).value), t = toSec(box.querySelector(`[data-to="${i}"]`).value); if (Number.isFinite(f)) p.from = f; if (Number.isFinite(t)) p.to = t; box.querySelector(`[data-len="${i}"]`).textContent = `${Math.round(p.to - p.from)} s`; };
+  box.querySelectorAll("[data-from],[data-to]").forEach((x) => (x.onchange = () => nudge(+(x.dataset.from ?? x.dataset.to))));
+  if ($("#c-cut")) $("#c-cut").onclick = async () => {
+    const chosen = picks.filter((p) => p.on !== false && p.to > p.from);
+    if (!chosen.length) return toast("Tick at least one");
+    const j = await clipJob("/api/clip/cut", { video, picks: chosen, size: $("#c-size").value, fit: $("#c-fit").value, captions: $("#c-caps").checked }, `Cutting ${chosen.length} clip${chosen.length === 1 ? "" : "s"}…`);
+    if (j) { await load(false); $("#out-clip").textContent = `Done. In the Library, and in ideas/inbox.md:\n${(j.files || []).join("\n")}`; }
   };
 }
 async function runMake(id, o, out) {
