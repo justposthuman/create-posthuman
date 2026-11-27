@@ -18,9 +18,9 @@ GEMINI_API_KEY=
 # Pexels: free real stock photos and clips (pexels.com/api)
 PEXELS_API_KEY=
 
-# Higgsfield: cinematic video and camera moves (console.higgsfield.ai; the API is billed apart from a Higgsfield plan)
-HF_API_KEY_ID=
-HF_API_KEY_SECRET=
+# Higgsfield: cinematic video and camera moves (open.higgsfield.ai → API keys; billed apart from a Higgsfield plan).
+# Paste the key as it's given, one line: key-id:key-secret
+HF_CREDENTIALS=
 
 # Runway: Gen-4 video from a photo or words (dev.runway.com → your project → API Keys; its own credits)
 RUNWAYML_API_SECRET=

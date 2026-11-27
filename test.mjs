@@ -79,8 +79,8 @@ ok(r.status === 0 && JSON.parse(r.stdout).post.includes("/from-env?"), "the voic
   ok(d.post?.endsWith("/models/black-forest-labs/flux-1.1-pro/predictions") && d.input?.prompt === "a desk", "replicate: a model by name");
   d = J(["tools/replicate.mjs", "owner/m:abc123", "--file", "image=library/test.png", "--out", "library/r.mp4", "--dry"]);
   ok(d.post?.endsWith("/predictions") && d.version === "abc123" && /^data:image\/png;base64,/.test(d.input?.image), "…or a pinned version, with a local file");
-  d = J(["tools/higgsfield.mjs", "higgsfield/cinema-studio/4.0", "--input", '{"prompt":"a slow dolly-in"}', "--out", "library/h.mp4", "--dry"]);
-  ok(d.post === "https://api.higgsfield.ai/higgsfield/cinema-studio/4.0" && d.input?.prompt === "a slow dolly-in", "higgsfield: a model by its endpoint id");
+  d = J(["tools/higgsfield.mjs", "kling-video/v4.0/text-to-video", "--input", '{"prompt":"a slow dolly-in"}', "--out", "library/h.mp4", "--dry"]);
+  ok(d.post === "https://api.higgsfield.ai/kling-video/v4.0/text-to-video" && d.input?.prompt === "a slow dolly-in", "higgsfield: a model by its endpoint id");
   d = J(["tools/runway.mjs", "video", "library/test.png", "slow push-in", "--out", "library/rw.mp4", "--dry"]);
   ok(d.post === "https://api.dev.runwayml.com/v1/image_to_video" && d.version === "2024-11-06" && d.body?.model === "gen4_turbo" && d.body.ratio === "720:1280" && d.body.duration === 5 && /^data:image\/png/.test(d.body.promptImage), "runway: a photo that moves, vertical, Gen-4 Turbo");
   const RW = await import(path.join(dir, "tools/runway.mjs"));
@@ -90,7 +90,7 @@ ok(r.status === 0 && JSON.parse(r.stdout).post.includes("/from-env?"), "the voic
   const LU = await import(path.join(dir, "tools/luma.mjs"));
   ok(LU.lumaRequest("video", { prompt: "p", frame: { url: "https://x" }, seconds: 10 }).video.duration === "5s" && LU.lumaRequest("text-video", { prompt: "p", seconds: 10 }).video.duration === "10s", "…10 seconds only without a starting photo (Luma's rule)");
   const PV = await import(path.join(dir, "tools/providers.mjs"));
-  ok(PV.keysWith((n) => (n === "HF_API_KEY_ID" ? "x" : "")).higgsfield === false && PV.keysWith((n) => (n.startsWith("HF_") ? "x" : "")).higgsfield === true, "…which needs both its key id and its secret");
+  ok(PV.keysWith((n) => (n === "HF_API_KEY_ID" ? "x" : "")).higgsfield === false && PV.keysWith((n) => (n.startsWith("HF_API_KEY_") ? "x" : "")).higgsfield === true && PV.keysWith((n) => (n === "HF_CREDENTIALS" ? "id:secret" : "")).higgsfield === true, "…Higgsfield: its one-line key, or the old id + secret pair (not half of it)");
   ok(PV.whoCan("captions")[0].id === "openai" && PV.whoCan("edit", { openai: true })[0].id === "openai" && PV.PROVIDERS.every((p) => /^https:\/\//.test(p.get) && p.env), "providers: every service says its .env line and where to get a key");
   const envNow = fs.readFileSync(path.join(dir, ".env.example"), "utf8");
   ok(PV.PROVIDERS.every((p) => [p.env, ...(p.also ?? [])].every((e) => envNow.includes(`${e}=`))), "…and .env.example has a line for each");
