@@ -1,6 +1,6 @@
 {
   "name": "create-posthuman",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "A starter folder for your own AI agent: your brand's voice, ideas, media and recipes on your computer, posted through Posthuman.",
   "type": "module",
   "bin": {
@@ -27,7 +27,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Wilybrave/create-posthuman.git"
+    "url": "git+https://github.com/justposthuman/create-posthuman.git"
   },
   "homepage": "https://justposthuman.com/kit",
   "author": "Wilcodes LLC"
